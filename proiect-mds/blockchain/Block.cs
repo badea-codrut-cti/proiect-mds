@@ -5,35 +5,40 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace proiect_mds.blockchain {
-    internal class Block {
-        public int Index { get; private set; }
-        public DateTime Timestamp { get; private set; }
-        public string PreviousHash { get; private set; }
-        public string ValidatorId { get; private set; }
-        public string SenderId { get; private set; }
-        public string ReceiverId { get; private set; }
-        public int Amount { get; private set; }
-        public string Hash { get; private set; }
+namespace proiect_mds.blockchain 
+{
+    internal class Transaction
+    {
+        public WalletId Sender { get; private set; }
+        public WalletId Receiver { get; private set; }
+        public UInt64 Amount { get; private set; }
 
-        public Block(int index, DateTime timestamp, string previousHash, string validatorId, string senderId, string receiverId, int amount)
+        public Transaction(WalletId sender, WalletId receiver, ulong amount)
         {
-            Index = index;
-            Timestamp = timestamp;
-            PreviousHash = previousHash;
-            ValidatorId = validatorId;
-            SenderId = senderId;
-            ReceiverId = receiverId;
-            Amount = amount;
-            Hash = CalculateHash();
+            this.Sender = sender;
+            this.Receiver = receiver;
+            this.Amount = amount;
         }
+    }
 
-        private string CalculateHash() {
-            using (var sha256 = SHA256.Create()) {
-                string dataToHash = $"{Index}{Timestamp}{PreviousHash}{ValidatorId}{SenderId}{ReceiverId}{Amount}";
-                byte[] hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(dataToHash));
-                return Convert.ToHexString(hashedBytes);
-            }
+    internal class Block 
+    {
+        public ulong Index { get; private set; }
+        public DateTime Timestamp { get; private set; }
+        public Hash PreviousHash { get; private set; }
+        public WalletId ValidatorId { get; private set; }
+        public List<Transaction> Transactions { get; private set; }
+
+        public Block(ulong index, DateTime timestamp, Hash previousHash, WalletId validatorId, List<Transaction> transactions)
+        {
+            if (transactions.Count == 0 || transactions.Count > 0xFF)
+                throw new ArgumentException("Cannot have an empty block or a block with more than 255 transactions.");
+
+            this.Index = index;
+            this.Timestamp = timestamp;
+            this.PreviousHash = previousHash;
+            this.ValidatorId = validatorId;
+            this.Transactions = transactions;
         }
     }
 }
