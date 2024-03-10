@@ -8,8 +8,8 @@ namespace proiect_mds.blockchain
 {
     internal class WalletId
     {
-        public const string WID_PREFIX = "+codrea";
-        private const int WID_LENGTH = 16;
+        public static string WID_PREFIX = "+codrea";
+        public static int WID_LENGTH = 16;
 
         private byte[] value = new byte[WID_LENGTH];
 
@@ -29,13 +29,41 @@ namespace proiect_mds.blockchain
         }
     }
 
+    internal abstract class PrivateKey
+    {
+        public abstract Transaction SignTransaction(WalletId sender, WalletId receiver, UInt64 Amount);
+    }
+
+    internal abstract class PublicKey
+    {
+        public abstract bool validateTransaction(Transaction transaction);
+    }
+
     internal class Wallet
     {
         public WalletId Identifier { get; private set; }
 
-       // public Wallet(Blockchain blockchain, WalletId identifier)
-        //{
+        private readonly Blockchain blockchain;
+        private readonly PrivateKey privateKey;
 
-       // }
+        public Wallet(Blockchain blockchain, WalletId identifier, PrivateKey privateKey)
+        {
+            this.blockchain = blockchain;
+            this.Identifier = identifier;
+            this.privateKey = privateKey;
+        }
+        public UInt64 GetBalance()
+        {
+            return blockchain.GetWalletBalance(Identifier);
+        }
+        public Transaction GenerateTransaction(WalletId receiver, UInt64 amount)
+        {
+            if (GetBalance() < amount)
+            {
+                throw new InvalidOperationException("Insufficient funds.");
+            }
+
+            return privateKey.SignTransaction(Identifier, receiver, amount);
+        }
     }
 }

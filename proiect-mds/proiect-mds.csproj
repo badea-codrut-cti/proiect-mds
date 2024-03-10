@@ -12,4 +12,9 @@
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="daemon\" />
+    <Folder Include="proto\" />
+  </ItemGroup>
+
 </Project>

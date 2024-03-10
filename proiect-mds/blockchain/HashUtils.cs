@@ -24,6 +24,20 @@ namespace proiect_mds.blockchain
             get { return value; }
         }
 
+        public override string ToString()
+        {
+            return Convert.ToHexString(value);
+        }
+
+        public override int GetHashCode()
+        {
+            int sum = 0;
+            foreach(byte b in value) { 
+                sum += b; 
+            }
+            return sum;
+        }
+
         public static Hash FromBlock(Block block)
         {
             StringBuilder dataBuilder = new StringBuilder();
@@ -32,17 +46,11 @@ namespace proiect_mds.blockchain
 
             foreach (Transaction transaction in block.Transactions)
             {
-                // TODO: transaction sig
-                dataBuilder.Append($"{transaction.Sender}{transaction.Receiver}{transaction.Amount}");
+                dataBuilder.Append($"{transaction.Sender}{transaction.Receiver}{transaction.Amount}{Convert.ToHexString(transaction.Signature)}");
             }
 
             byte[] dataBytes = Encoding.UTF8.GetBytes(dataBuilder.ToString());
             return new Hash(dataBytes);
-        }
-
-        public override string ToString()
-        {
-            return Convert.ToHexString(value);
         }
     }
 }
