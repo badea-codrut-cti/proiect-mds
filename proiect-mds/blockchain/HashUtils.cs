@@ -9,7 +9,8 @@ namespace proiect_mds.blockchain
 {
     internal class Hash
     {
-        private byte[] value = new byte[32];
+        public static uint HASH_LENGTH = 32;
+        private byte[] value = new byte[HASH_LENGTH];
 
         public Hash(byte[] data)
         {

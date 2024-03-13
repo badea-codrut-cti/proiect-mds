@@ -10,11 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.3.0" />
+    <PackageReference Include="protobuf-net" Version="3.2.30" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="daemon\" />
-    <Folder Include="proto\" />
-  </ItemGroup>
-
+	
 </Project>

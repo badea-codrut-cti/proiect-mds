@@ -1,0 +1,59 @@
+﻿syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package bch;
+
+message Hash {
+	bytes bytes = 1; // 256-bit Hash
+}
+
+message WalletId {
+	bytes bytes = 1; // 128-bit WalletID
+}
+
+message BCTransaction {
+	WalletID sender = 1;
+	WalletID receiver = 2;
+	uint64 amount = 3;
+}
+
+message BCBlock {
+	uint64 index = 1;
+	google.protobuf.Timestamp timestamp = 2;
+	Hash previous_hash = 3;
+	WalletId validator_id = 4;
+	repeated BCTransaction transactions = 5;
+}
+
+message BCHello {
+	uint32 version = 1;
+	uint32 port = 2;
+}
+
+message NodeAddressInfo {
+	fixed32 ipv4 = 1;
+	uint32 port = 2;
+}
+
+message BCNodeAdvertiseRequest {
+
+}
+
+message BCNodeAdvertiseResponse {
+	uint32 node_count = 1;
+	repeated NodeAddressInfo nodes = 2;
+}
+
+message BCSyncChainRequest {
+	uint64 last_known_block_index = 1; 
+}
+
+message BCSyncHandshakeRequest {
+	uint32 version = 1;
+}
+
+message BCSyncHandshakeResponse {
+	byte code = 1; // 0 = accept, 2 = reject (already enough nodes), 9 = version error
+
+}

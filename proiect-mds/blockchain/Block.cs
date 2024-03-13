@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ProtoBuf;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -7,11 +8,16 @@ using System.Threading.Tasks;
 
 namespace proiect_mds.blockchain 
 {
+    [ProtoContract]
     internal class Transaction
     {
-        public static int SIGNATURE_LENGTH = 16;
+        public static uint SIGNATURE_LENGTH = 16;
+
+        [ProtoMember(1)]
         public WalletId Sender { get; private set; }
+        [ProtoMember(2)]
         public WalletId Receiver { get; private set; }
+        [ProtoMember(3)]
         public UInt64 Amount { get; private set; }
         private readonly byte[] signature = new byte[SIGNATURE_LENGTH];
         public Transaction(WalletId sender, WalletId receiver, ulong amount, byte[] signature)
@@ -27,12 +33,18 @@ namespace proiect_mds.blockchain
         public byte[] Signature { get { return signature; } }
     }
 
+    [ProtoContract]
     internal class Block 
     {
+        [ProtoMember(1)]
         public ulong Index { get; private set; }
+        [ProtoMember(2)]
         public DateTime Timestamp { get; private set; }
+        [ProtoMember(3)]
         public Hash? PreviousHash { get; private set; }
+        [ProtoMember(4)]
         public WalletId ValidatorId { get; private set; }
+        [ProtoMember(5)]
         public List<Transaction> Transactions { get; private set; }
 
         public Block(ulong index, DateTime timestamp, Hash previousHash, WalletId validatorId, List<Transaction> transactions)
