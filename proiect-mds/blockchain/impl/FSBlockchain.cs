@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection.PortableExecutable;
 using System.Text;
@@ -49,7 +50,7 @@ namespace proiect_mds.blockchain.impl
         public override bool MoveNext()
         {
             Block? bl = readCache.Find(block => block.Index == currentBlock.Index + 1);
-               
+
             if (bl != null)
             {
                 currentBlock = bl;
@@ -64,17 +65,12 @@ namespace proiect_mds.blockchain.impl
                 return true;
             }
 
-            while (!endOfStreamReached &&
-            (bl = readCache.Find(block => block.Index == currentBlock.Index + 1)) == null)
-            {
-                readCache.Clear();
-                FillReadCache();
-            }
+            ulong? index;
 
-            if (bl != null)
+            while ((index = GetSeekBlockIndex()) != null
+                && index != currentBlock.Index + 1)
             {
-                currentBlock = bl;
-                return true;
+                SkipBlock();
             }
 
             return false;
@@ -96,7 +92,7 @@ namespace proiect_mds.blockchain.impl
         }
         private bool IsGenesisBlock(Block block)
         {
-            return block.Index == 0; 
+            return block.Index == 0;
         }
         public override void Reset()
         {
@@ -158,7 +154,8 @@ namespace proiect_mds.blockchain.impl
                     transactions.Add(transaction);
                 }
                 return new Block(index, timestamp, prevHash, validatortId, transactions);
-            } catch (IOException)
+            }
+            catch (IOException)
             {
                 return null;
             }
@@ -169,19 +166,48 @@ namespace proiect_mds.blockchain.impl
             {
                 using (BinaryReader reader = new BinaryReader(stream))
                 {
-                    ulong index = reader.ReadUInt64();
-                    stream.Seek(sizeof(ulong) + Hash.HASH_LENGTH + WalletId.WID_LENGTH, SeekOrigin.Current);
+                    stream.Seek(sizeof(ulong) * 2 + Hash.HASH_LENGTH + WalletId.WID_LENGTH, SeekOrigin.Current);
                     byte tCount = reader.ReadByte();
-                    while (tCount-- > 0)
-                        stream.Seek(WalletId.WID_LENGTH * 2 + sizeof(ulong) + Transaction.SIGNATURE_LENGTH, SeekOrigin.Current);
+                    stream.Seek(
+                        tCount * (WalletId.WID_LENGTH * 2 + sizeof(ulong) + Transaction.SIGNATURE_LENGTH),
+                        SeekOrigin.Current
+                    );
                     return true;
                 }
-            } catch (IOException)
+            }
+            catch (IOException)
             {
+                endOfStreamReached = true;
                 return false;
             }
         }
+        private ulong? GetSeekBlockIndex()
+        {
+            try
+            {
+                using (BinaryReader reader = new BinaryReader(stream))
+                {
+                    ulong index = reader.ReadUInt64();
+                    stream.Seek(-sizeof(ulong), SeekOrigin.Current);
+                    return index;
+                }
+            }
+            catch (IOException)
+            {
+                endOfStreamReached = true;
+                return null;
+            }
+        }
+        private bool MakeRoomForBlock(Block block)
+        {
+
+        }
+        private bool WriteBlockToStream(Block block)
+        {
+            
+        }
     }
+
     internal class FSBlockchain
     {
     }
