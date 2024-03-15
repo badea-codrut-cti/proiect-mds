@@ -11,7 +11,7 @@ namespace proiect_mds.blockchain
     [ProtoContract]
     internal class Transaction
     {
-        public static uint SIGNATURE_LENGTH = 16;
+        public static UInt16 SIGNATURE_LENGTH = 16;
 
         [ProtoMember(1)]
         public WalletId Sender { get; private set; }
@@ -19,8 +19,10 @@ namespace proiect_mds.blockchain
         public WalletId Receiver { get; private set; }
         [ProtoMember(3)]
         public UInt64 Amount { get; private set; }
+        [ProtoMember(4)]
+        public DateTime Timestamp { get; private set; }
         private readonly byte[] signature = new byte[SIGNATURE_LENGTH];
-        public Transaction(WalletId sender, WalletId receiver, ulong amount, byte[] signature)
+        public Transaction(WalletId sender, WalletId receiver, ulong amount, byte[] signature, DateTime timestamp)
         {
             if (signature.Length != SIGNATURE_LENGTH)
                 throw new ArgumentException("Signature length is invalid.");
@@ -29,6 +31,7 @@ namespace proiect_mds.blockchain
             this.Receiver = receiver;
             this.Amount = amount;
             this.signature = signature;
+            this.Timestamp = timestamp;
         }
         public byte[] Signature { get { return signature; } }
     }

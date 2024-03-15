@@ -18,18 +18,32 @@ namespace proiect_mds.blockchain
         public abstract bool AddBlock(Block block);
     }
 
+    internal abstract class WalletIterator : IEnumerator<PublicWallet>
+    {
+        protected WalletIterator() { }
+        public abstract bool MoveNext();
+        public abstract void Reset();
+        public abstract void Dispose();
+        public abstract PublicWallet Current { get; }
+        object IEnumerator.Current => Current;
+        public abstract bool AddWallet(PublicWallet block);
+    }
+
     internal class Blockchain
     {
         private readonly BlockIterator blockIterator;
-        public Blockchain(BlockIterator blockIterator)
+        private readonly WalletIterator walletIterator;
+        public Blockchain(BlockIterator blockIterator, WalletIterator walletIterator)
         {
             this.blockIterator = blockIterator;
+            this.walletIterator = walletIterator;
         }
 
-        public UInt64 GetWalletBalance(WalletId walletId)
+        public UInt64? GetWalletBalance(WalletId walletId)
         {
             UInt64 received = 0;
             UInt64 sent = 0;
+            bool wasFound = false;
             blockIterator.Reset();
             while (blockIterator.MoveNext())
             {
@@ -41,13 +55,30 @@ namespace proiect_mds.blockchain
                         sent += transaction.Amount;
                     else if (transaction.Receiver == walletId)
                         received += transaction.Amount;
+
+                    if (transaction.Sender == walletId ||  transaction.Receiver == walletId)
+                        wasFound = true;
                 }
             }
+
+            if (!wasFound)
+                return null;
 
             if (received < sent)
                 throw new InvalidDataException("Wallets cannot have negative balance. Maybe the blockchain is out of sync.");
 
             return received - sent;
+        }
+
+        public PublicKey? GetKeyFromWalletId(WalletId walletId)
+        {
+            while (walletIterator.MoveNext())
+            {
+                if (walletIterator.Current.Identifier == walletId)
+                    return walletIterator.Current.PublicKey;
+            }
+
+            return null;
         }
     }
 }

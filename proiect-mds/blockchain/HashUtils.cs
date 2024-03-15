@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ProtoBuf;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -7,9 +8,11 @@ using System.Threading.Tasks;
 
 namespace proiect_mds.blockchain
 {
+    [ProtoContract]
     internal class Hash
     {
         public static uint HASH_LENGTH = 32;
+        [ProtoMember(1)]
         private byte[] value = new byte[HASH_LENGTH];
 
         public Hash(byte[] data)

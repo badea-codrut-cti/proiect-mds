@@ -12,12 +12,13 @@ namespace proiect_mds.blockchain.impl
 
     internal class FSBlockIterator : BlockIterator
     {
-        private readonly Stream stream;
+        private static readonly Int64 TRANSACTION_LENGTH = sizeof(ulong) + WalletId.WID_LENGTH * 2 + Transaction.SIGNATURE_LENGTH;
+        private static readonly Int64 BLOCK_HEADER_LENGTH = sizeof(ulong) * 2 + Hash.HASH_LENGTH + WalletId.WID_LENGTH;
+
+        private readonly Stream blockStream;
         private readonly int maxCache;
         private List<Block> readCache;
         private List<Block> writeCache;
-        private int readCacheIndex;
-        private int writeCacheIndex;
         private bool endOfStreamReached;
         private bool disposed = false;
         private Block currentBlock;
@@ -30,12 +31,10 @@ namespace proiect_mds.blockchain.impl
                 throw new ArgumentOutOfRangeException(nameof(maxCache), "maxCache must be positive.");
             }
 
-            this.stream = stream;
+            this.blockStream = stream;
             this.maxCache = maxCache;
             this.readCache = new List<Block>(maxCache);
             this.writeCache = new List<Block>(maxCache);
-            this.readCacheIndex = 0;
-            this.writeCacheIndex = 0;
             this.endOfStreamReached = false;
 
             FillReadCache();
@@ -98,15 +97,15 @@ namespace proiect_mds.blockchain.impl
         {
             endOfStreamReached = false;
             readCache.Clear();
-            stream.Seek(0, SeekOrigin.Begin);
+            blockStream.Seek(0, SeekOrigin.Begin);
             FillReadCache();
         }
         public override void Dispose()
         {
             if (!disposed)
             {
-                WriteCacheToDisk();
-                stream.Dispose();
+                //WriteCacheToDisk();
+                blockStream.Dispose();
                 disposed = true;
             }
         }
@@ -128,7 +127,7 @@ namespace proiect_mds.blockchain.impl
             writeCache.Add(block);
             if (writeCache.Count > maxCache)
             {
-                WriteCacheToDisk();
+                //WriteCacheToDisk();
             }
             return true;
         }
@@ -137,9 +136,9 @@ namespace proiect_mds.blockchain.impl
         {
             try
             {
-                BinaryReader reader = new BinaryReader(stream);
+                BinaryReader reader = new BinaryReader(blockStream);
                 ulong index = reader.ReadUInt64();
-                DateTime timestamp = new DateTime((long)reader.ReadUInt64());
+                DateTime blockTimestamp = new DateTime(reader.ReadInt64());
                 Hash prevHash = new Hash(reader.ReadBytes((int)Hash.HASH_LENGTH));
                 WalletId validatortId = new WalletId(reader.ReadBytes(WalletId.WID_LENGTH));
                 byte tCount = reader.ReadByte();
@@ -148,12 +147,13 @@ namespace proiect_mds.blockchain.impl
                 {
                     WalletId senderId = new WalletId(reader.ReadBytes(WalletId.WID_LENGTH));
                     WalletId receiverId = new WalletId(reader.ReadBytes(WalletId.WID_LENGTH));
+                    DateTime timestamp = new DateTime(reader.ReadInt64());
                     ulong amount = reader.ReadUInt64();
                     byte[] signature = reader.ReadBytes((int)Transaction.SIGNATURE_LENGTH);
-                    Transaction transaction = new Transaction(senderId, receiverId, amount, signature);
+                    Transaction transaction = new Transaction(senderId, receiverId, amount, signature, timestamp);
                     transactions.Add(transaction);
                 }
-                return new Block(index, timestamp, prevHash, validatortId, transactions);
+                return new Block(index, blockTimestamp, prevHash, validatortId, transactions); ;
             }
             catch (IOException)
             {
@@ -164,16 +164,12 @@ namespace proiect_mds.blockchain.impl
         {
             try
             {
-                using (BinaryReader reader = new BinaryReader(stream))
-                {
-                    stream.Seek(sizeof(ulong) * 2 + Hash.HASH_LENGTH + WalletId.WID_LENGTH, SeekOrigin.Current);
-                    byte tCount = reader.ReadByte();
-                    stream.Seek(
-                        tCount * (WalletId.WID_LENGTH * 2 + sizeof(ulong) + Transaction.SIGNATURE_LENGTH),
-                        SeekOrigin.Current
-                    );
-                    return true;
-                }
+                blockStream.Seek(BLOCK_HEADER_LENGTH, SeekOrigin.Current);
+                int tCount = blockStream.ReadByte();
+                if (tCount == -1)
+                    return false;
+                blockStream.Seek(tCount * TRANSACTION_LENGTH, SeekOrigin.Current);
+                return true;
             }
             catch (IOException)
             {
@@ -185,10 +181,10 @@ namespace proiect_mds.blockchain.impl
         {
             try
             {
-                using (BinaryReader reader = new BinaryReader(stream))
+                using (BinaryReader reader = new BinaryReader(blockStream))
                 {
                     ulong index = reader.ReadUInt64();
-                    stream.Seek(-sizeof(ulong), SeekOrigin.Current);
+                    blockStream.Seek(-sizeof(ulong), SeekOrigin.Current);
                     return index;
                 }
             }
@@ -200,11 +196,21 @@ namespace proiect_mds.blockchain.impl
         }
         private bool MakeRoomForBlock(Block block)
         {
-
+            long currentLength = blockStream.Length;
+            long offset = currentLength + BLOCK_HEADER_LENGTH + block.Transactions.Count * TRANSACTION_LENGTH;
+            blockStream.SetLength(offset);
+            return true;
         }
         private bool WriteBlockToStream(Block block)
         {
-            
+            ulong? pIndex;
+            while ((pIndex = GetSeekBlockIndex()) != null &&
+                pIndex < block.Index)
+                SkipBlock();
+            if (pIndex == block.Index)
+                return true;
+            MakeRoomForBlock(block);
+            return true;
         }
     }
 

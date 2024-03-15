@@ -12,6 +12,16 @@ message WalletId {
 	bytes bytes = 1; // 128-bit WalletID
 }
 
+message PublicKey {
+	bytes bytes = 1;
+}
+
+message PublicWallet {
+	WalletId identifier = 1;
+	PublicKey public_key = 2;
+}
+
+
 message BCTransaction {
 	WalletID sender = 1;
 	WalletID receiver = 2;
