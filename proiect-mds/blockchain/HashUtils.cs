@@ -45,8 +45,8 @@ namespace proiect_mds.blockchain
         public static Hash FromBlock(Block block)
         {
             StringBuilder dataBuilder = new StringBuilder();
-
-            dataBuilder.Append($"{block.Index}{block.Timestamp}{block.PreviousHash.Value}{block.ValidatorId}");
+            var bHash = block.PreviousHash == null ? "" : block.PreviousHash.ToString();
+            dataBuilder.Append($"{block.Index}{block.Timestamp}{bHash}{block.ValidatorId}");
 
             foreach (Transaction transaction in block.Transactions)
             {

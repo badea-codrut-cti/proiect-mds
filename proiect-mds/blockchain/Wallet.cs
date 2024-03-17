@@ -1,16 +1,14 @@
 ﻿using Org.BouncyCastle.Crypto.Signers;
 using Org.BouncyCastle.Crypto;
 using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Math;
-using Org.BouncyCastle.Asn1;
-using Org.BouncyCastle.Asn1.X9;
+using Org.BouncyCastle.OpenSsl;
+using System.Globalization;
+using Org.BouncyCastle.Crypto.Digests;
+using proiect_mds.blockchain.exception;
 
 namespace proiect_mds.blockchain
 {
@@ -40,50 +38,65 @@ namespace proiect_mds.blockchain
 
     internal class PrivateKey
     {
-        public static int PRIVATE_KEY_LENGTH = 300;
         private readonly ECPrivateKeyParameters privateKeyParams; 
 
-        public PrivateKey(byte[] data)
+        public PrivateKey(string data)
         {
-            if (data.Length != PRIVATE_KEY_LENGTH)
-                throw new ArgumentException("Private key length mismatch.");
-            BigInteger privateKey = new BigInteger(1, Encoding.UTF8.GetBytes("-----BEGIN EC PRIVATE KEY-----" + Encoding.UTF8.GetString(data) + "-----END EC PRIVATE KEY-----"));
-            var ecp = ECNamedCurveTable.GetByName("secp521k1");
-            var domainParams = new ECDomainParameters(ecp.Curve, ecp.G, ecp.N, ecp.H, ecp.GetSeed());
-            privateKeyParams = new ECPrivateKeyParameters(privateKey, domainParams);
-            if (privateKeyParams == null)
-                throw new ArgumentException("Invalid private key.");
+            try
+            {
+                var rdr = new PemReader(new StringReader(data));
+                AsymmetricCipherKeyPair keyPair = (AsymmetricCipherKeyPair)rdr.ReadObject();
+                privateKeyParams = (ECPrivateKeyParameters)keyPair.Private;
+            } catch(FormatException) {
+                throw new PrivateKeyException("Improperly formatted private key");
+            }
         }
 
         public Transaction? SignTransaction(WalletId sender, WalletId receiver, ulong amount, DateTime timestamp)
         {
-            byte[] transactionData = Encoding.UTF8.GetBytes($"{sender}{receiver}{amount}{timestamp}");
-            var signer = new ECDsaSigner();
+            string formattedTimestamp = timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
+            byte[] transactionData = Encoding.UTF8.GetBytes($"{sender}{receiver}{amount}{formattedTimestamp}");
+            var signer = new ECDsaSigner(new HMacDsaKCalculator(new Sha256Digest()));
             signer.Init(true, privateKeyParams);
             BigInteger[] signature = signer.GenerateSignature(transactionData);
-            byte[] signatureBytes = new byte[0];
-            foreach ( var x in signature )
-            {
-                signatureBytes.Concat(x.ToByteArray());
-            }
+            var rBytes = signature[0].ToByteArrayUnsigned();
+            var sBytes = signature[1].ToByteArrayUnsigned();
+            byte[] signatureBytes = new byte[Transaction.SIGNATURE_LENGTH];
+            Buffer.BlockCopy(rBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH / 2 - rBytes.Length, rBytes.Length);
+            Buffer.BlockCopy(sBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH - sBytes.Length, sBytes.Length);
             return new Transaction(sender, receiver, amount, signatureBytes, timestamp);
         }
     }
 
     [ProtoContract]
-    internal abstract class PublicKey
+    internal class PublicKey
     {
         [ProtoMember(1)]
-        private readonly byte[] value;
-        public static int PUBKEY_SIZE /* = length here*/;
-        public PublicKey(byte[] pKey)
+        private readonly string pemString;
+
+        public PublicKey(string pKey)
         {
-            this.value = pKey;
+            this.pemString = pKey;
         }
-        public bool validateTransaction(Transaction transaction)
+        public bool ValidateTransaction(Transaction transaction)
         {
-            // TODO
-            return true;
+            var rdr = new PemReader(new StringReader(pemString));
+            var publicKeyParams = (ECPublicKeyParameters)rdr.ReadObject();
+
+            var signer = new ECDsaSigner();
+            signer.Init(false, publicKeyParams);
+            string formattedTimestamp = transaction.Timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
+            byte[] transactionData = Encoding.UTF8.GetBytes($"{transaction.Sender}{transaction.Receiver}{transaction.Amount}{formattedTimestamp}");
+            
+            byte[] rBytes = new byte[Transaction.SIGNATURE_LENGTH / 2];
+            Buffer.BlockCopy(transaction.Signature, 0, rBytes, 0, rBytes.Length);
+            var r = new BigInteger(rBytes); 
+
+            byte[] sBytes = new byte[Transaction.SIGNATURE_LENGTH / 2];
+            Buffer.BlockCopy(transaction.Signature, Transaction.SIGNATURE_LENGTH / 2, sBytes, 0, sBytes.Length);
+            var s = new BigInteger(sBytes);
+
+            return signer.VerifySignature(transactionData, r, s);
         }
     }
 

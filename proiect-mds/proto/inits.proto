@@ -31,8 +31,8 @@ message BCTransaction {
 message BCBlock {
 	uint64 index = 1;
 	google.protobuf.Timestamp timestamp = 2;
-	Hash previous_hash = 3;
-	WalletId validator_id = 4;
+	WalletId validator_id = 3;
+	optional Hash previous_hash = 4;
 	repeated BCTransaction transactions = 5;
 }
 
@@ -63,7 +63,12 @@ message BCSyncHandshakeRequest {
 	uint32 version = 1;
 }
 
-message BCSyncHandshakeResponse {
-	byte code = 1; // 0 = accept, 2 = reject (already enough nodes), 9 = version error
+enum BCSyncHandshakeStatusCode {
+	ACCEPT = 0;
+	REJECT = 1;
+	VERSION_ERROR = 3;
+}
 
+message BCSyncHandshakeResponse {
+	BCSyncHandshakeStatusCode code = 1;
 }
