@@ -18,7 +18,7 @@ namespace proiect_mds.blockchain
         public static string WID_PREFIX = "+codrea";
         public static UInt16 WID_LENGTH = 16;
         [ProtoMember(1)]
-        private byte[] value = new byte[WID_LENGTH];
+        private readonly byte[] value = new byte[WID_LENGTH];
 
         public WalletId(byte[] data)
         {
@@ -34,11 +34,17 @@ namespace proiect_mds.blockchain
         {
             return WID_PREFIX + Convert.ToHexString(value);
         }
+
+        public byte[] ToBytes()
+        {
+            return value;
+        }
     }
 
     internal class PrivateKey
     {
-        private readonly ECPrivateKeyParameters privateKeyParams; 
+        private readonly ECPrivateKeyParameters privateKeyParams;
+        public static int PRIVATE_KEY_LENGTH = 160;
 
         public PrivateKey(string data)
         {
@@ -71,16 +77,26 @@ namespace proiect_mds.blockchain
     [ProtoContract]
     internal class PublicKey
     {
+        public static int PUBLIC_KEY_LENGTH = 120;
+
         [ProtoMember(1)]
-        private readonly string pemString;
+        public string PemString { get; private set; }
 
         public PublicKey(string pKey)
         {
-            this.pemString = pKey;
+            if (pKey.Length != PUBLIC_KEY_LENGTH)
+            {
+                throw new PublicKeyException("Invalid public key length.");
+            }
+            this.PemString = pKey;
         }
         public bool ValidateTransaction(Transaction transaction)
         {
-            var rdr = new PemReader(new StringReader(pemString));
+            var rdr = new PemReader(new StringReader(
+                "-----BEGIN PUBLIC KEY-----" +
+                PemString +
+                "-----END PUBLIC KEY-----"
+             ));
             var publicKeyParams = (ECPublicKeyParameters)rdr.ReadObject();
 
             var signer = new ECDsaSigner();
@@ -131,7 +147,7 @@ namespace proiect_mds.blockchain
         }
         public UInt64 GetBalance()
         {
-            UInt64? balance = blockchain.GetWalletBalance(Identifier);
+            ulong? balance = blockchain.GetWalletBalance(Identifier);
             if (balance == null)
             {
                 throw new InvalidOperationException("Wallet is not synced to the blockchain.");
@@ -150,9 +166,16 @@ namespace proiect_mds.blockchain
             return transaction;
         }
 
-        /*public static Wallet CreateUniqueWallet(Blockchain blockchain)
+        public static Wallet CreateUniqueWallet(Blockchain blockchain, PrivateKey privateKey)
         {
-            
-        }*/
+            var random = new SecureRandom();
+            byte[] randomBytes = new byte[WalletId.WID_LENGTH];
+            random.NextBytes(randomBytes);
+
+            while (blockchain.GetKeyFromWalletId(new WalletId(randomBytes)) != null)
+                random.NextBytes(randomBytes); 
+
+            return new Wallet(blockchain, new WalletId(randomBytes), privateKey);
+        }
     }
 }

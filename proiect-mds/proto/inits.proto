@@ -26,6 +26,8 @@ message BCTransaction {
 	WalletID sender = 1;
 	WalletID receiver = 2;
 	uint64 amount = 3;
+	google.protobuf.Timestamp timestamp = 4;
+	bytes signature = 5;
 }
 
 message BCBlock {

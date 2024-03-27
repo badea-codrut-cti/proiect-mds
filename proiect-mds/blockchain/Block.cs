@@ -22,11 +22,15 @@ namespace proiect_mds.blockchain
         public UInt64 Amount { get; private set; }
         [ProtoMember(4)]
         public DateTime Timestamp { get; private set; }
+        [ProtoMember(5)]
         private readonly byte[] signature = new byte[SIGNATURE_LENGTH];
         public Transaction(WalletId sender, WalletId receiver, ulong amount, byte[] signature, DateTime timestamp)
         {
             if (signature.Length != SIGNATURE_LENGTH)
                 throw new TransactionException("Signature length is invalid.");
+
+            if (amount > 0x7FFFFFFFFFFFFFFF)
+                throw new TransactionException("Amount is bigger than 2^63");
 
             this.Sender = sender;
             this.Receiver = receiver;

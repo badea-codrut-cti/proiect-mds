@@ -80,5 +80,18 @@ namespace proiect_mds.blockchain
 
             return null;
         }
+
+        public Block GetLatestBlock()
+        {
+            blockIterator.Reset();
+            Block ret = blockIterator.Current;
+            while (blockIterator.MoveNext())
+            {
+                Block block = blockIterator.Current;
+                if (block.Index > ret.Index)
+                    ret = block;
+            }
+            return ret;
+        }
     }
 }
