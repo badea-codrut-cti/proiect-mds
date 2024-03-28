@@ -70,6 +70,20 @@ namespace proiect_mds.blockchain
             return received - sent;
         }
 
+        public bool AddBlock(Block block)
+        {
+            if (IsGenesisBlock(block))
+            {
+                return blockIterator.AddBlock(block);
+            }
+
+            var previousBlock = GetBlock(block.Index - 1);
+            if (previousBlock == null || Hash.FromBlock(previousBlock) != block.PreviousHash)
+                return false;
+
+            return blockIterator.AddBlock(previousBlock);
+        }
+
         public PublicKey? GetKeyFromWalletId(WalletId walletId)
         {
             while (walletIterator.MoveNext())
@@ -92,6 +106,24 @@ namespace proiect_mds.blockchain
                     ret = block;
             }
             return ret;
+        }
+
+        public Block? GetBlock(UInt64 index)
+        {
+            blockIterator.Reset();
+            Block block = blockIterator.Current;
+            do
+            {
+                if (block.Index == index)
+                    return block;
+                block = blockIterator.Current;
+            } while (blockIterator.MoveNext());
+            return null;
+        }
+
+        public static bool IsGenesisBlock(Block block)
+        {
+            return block.PreviousHash != null && block.Transactions.Count == 0 && block.Index == 0;
         }
     }
 }

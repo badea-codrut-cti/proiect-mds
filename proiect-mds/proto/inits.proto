@@ -38,9 +38,26 @@ message BCBlock {
 	repeated BCTransaction transactions = 5;
 }
 
+enum HelloRequestType {
+	ASK_FOR_PEERS = 1;
+	SYNC_BLOCKCHAIN = 2;
+	BROADCAST_TRANSACTION = 3;
+}
+
 message BCHello {
 	uint32 version = 1;
 	uint32 port = 2;
+	HelloRequestType req_type = 3;
+}
+
+enum WelcomeResponseType {
+	BAD_VERSION = 1;
+    BAD_REQUEST = 2;
+    SUCCESS = 3;
+}
+
+message BCWelcome {
+	WelcomeResponseType response = 1;
 }
 
 message NodeAddressInfo {
@@ -59,18 +76,16 @@ message BCNodeAdvertiseResponse {
 
 message BCSyncChainRequest {
 	uint64 last_known_block_index = 1; 
+	Hash last_known_block_hash = 2;
 }
 
-message BCSyncHandshakeRequest {
-	uint32 version = 1;
+enum BCSyncResponseType {
+	NEXT_BLOCK = 1;
+	BLOCK_NOT_FOUND = 2;
+	HASH_MISMATCH = 3;
 }
 
-enum BCSyncHandshakeStatusCode {
-	ACCEPT = 0;
-	REJECT = 1;
-	VERSION_ERROR = 3;
-}
-
-message BCSyncHandshakeResponse {
-	BCSyncHandshakeStatusCode code = 1;
+message BCSyncChainResponse {
+	BCSyncResponseType response_type = 1;
+	optional Block block = 2;
 }
