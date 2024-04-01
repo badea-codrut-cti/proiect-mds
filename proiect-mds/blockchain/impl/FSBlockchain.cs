@@ -1,4 +1,5 @@
-﻿using System;
+﻿using proiect_mds.blockchain.exception;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -10,58 +11,126 @@ using System.Threading.Tasks;
 namespace proiect_mds.blockchain.impl
 {
 
-    internal class FSBlockIterator : FSIteratorUtil<Block>
+    internal class FSBlockIterator : BlockIterator
     {
         private static readonly Int64 TRANSACTION_LENGTH = sizeof(ulong) + WalletId.WID_LENGTH * 2 + Transaction.SIGNATURE_LENGTH;
         private static readonly Int64 BLOCK_HEADER_LENGTH = sizeof(ulong) * 2 + Hash.HASH_LENGTH + WalletId.WID_LENGTH;
 
-        public FSBlockIterator(Stream stream, int maxCache = 100) : base(stream, maxCache) { }
+        private readonly Stream blockStream;
+        private readonly int maxCache;
+        private List<Block> writeCache;
+        private bool disposed = false;
+        private bool endOfStreamReached = false;
+        private Block currentBlock;
 
-        public bool MoveNext()
+        public FSBlockIterator(Stream stream, int maxCache = 100)
         {
-            Block? bl = readCache.Find(block => block.Index == currentObject.Index + 1);
-
-            if (bl != null)
+            ArgumentNullException.ThrowIfNull(stream);
+            if (maxCache <= 0)
             {
-                currentObject = bl;
-                return true;
+                throw new ArgumentOutOfRangeException(nameof(maxCache), "maxCache must be positive.");
             }
 
-            bl = writeCache.Find(block => block.Index == currentObject.Index + 1);
+            this.blockStream = stream;
+            this.maxCache = maxCache;
+            this.writeCache = new List<Block>(maxCache);
 
-            if (bl != null)
+            var cBlock = ReadBlock();
+            if (cBlock == null || !Blockchain.IsGenesisBlock(cBlock)) 
             {
-                currentObject = bl;
-                return true;
+                throw new ArgumentException("Poorly formatted stream.");
+            }
+
+            currentBlock = cBlock;
+        }
+        public override bool MoveNext()
+        {
+            var nBlock = GetNextBlock();
+            if (nBlock == null)
+            {
+                nBlock = ReadBlock();
+                if (nBlock == null)
+                    return false;
+            }
+            currentBlock = nBlock;
+            return true;
+        }
+        private Block? GetNextBlock()
+        {
+            var previousPos = blockStream.Position;
+            var lastBlockhash = Hash.FromBlock(currentBlock);
+
+            var fBlock = writeCache.Find(block => block.Index == currentBlock.Index + 1);
+
+            if (fBlock != null)
+            {
+                return fBlock;
             }
 
             ulong? index;
 
             while ((index = GetSeekBlockIndex()) != null
-                && index != currentObject.Index + 1)
+                && index != currentBlock.Index + 1)
             {
                 SkipBlock();
             }
 
-            return false;
+            if (index == currentBlock.Index + 1)
+            {
+                fBlock = ReadBlock();
+            }
+            blockStream.Seek(previousPos, SeekOrigin.Begin);
+            return fBlock;
         }
-        private bool IsGenesisBlock(Block block)
+        public override void Reset()
         {
-            return block.Index == 0;
+            endOfStreamReached = false;
+            blockStream.Seek(0, SeekOrigin.Begin);
+        }
+        public override void Dispose()
+        {
+            if (!disposed)
+            {
+                //WriteCacheToDisk();
+                blockStream.Dispose();
+                disposed = true;
+            }
         }
 
-        protected override Block? ReadFromStream()
+        public override Block Current
+        {
+            get
+            {
+                if (currentBlock == null)
+                {
+                    throw new InvalidOperationException("No current block.");
+                }
+                return currentBlock;
+            }
+        }
+
+        public override bool AddBlock(Block block)
+        {
+            writeCache.Add(block);
+            if (writeCache.Count > maxCache)
+            {
+                //WriteCacheToDisk();
+            }
+            return true;
+        }
+
+        private Block? ReadBlock()
         {
             try
             {
-                BinaryReader reader = new BinaryReader(objectStream);
+                BinaryReader reader = new BinaryReader(blockStream);
                 ulong index = reader.ReadUInt64();
                 DateTime blockTimestamp = new DateTime(reader.ReadInt64());
-                Hash prevHash = new Hash(reader.ReadBytes((int)Hash.HASH_LENGTH));
-                WalletId validatortId = new WalletId(reader.ReadBytes(WalletId.WID_LENGTH));
-                byte tCount = reader.ReadByte();
+                Hash? prevHash = index > 0 ? new Hash(reader.ReadBytes((int)Hash.HASH_LENGTH)) : null;
+                WalletId validatorId = new WalletId(reader.ReadBytes(WalletId.WID_LENGTH));
+                uint tCount = reader.ReadUInt32();
                 List<Transaction> transactions = new List<Transaction>();
-                for (byte i = 0; i < tCount; i++)
+                for (uint i = 0; i < tCount; i++)
                 {
                     WalletId senderId = new WalletId(reader.ReadBytes(WalletId.WID_LENGTH));
                     WalletId receiverId = new WalletId(reader.ReadBytes(WalletId.WID_LENGTH));
@@ -71,7 +140,7 @@ namespace proiect_mds.blockchain.impl
                     Transaction transaction = new Transaction(senderId, receiverId, amount, signature, timestamp);
                     transactions.Add(transaction);
                 }
-                return new Block(index, blockTimestamp, prevHash, validatortId, transactions); ;
+                return new Block(index, blockTimestamp, prevHash, validatorId, transactions); ;
             }
             catch (IOException)
             {
@@ -82,11 +151,11 @@ namespace proiect_mds.blockchain.impl
         {
             try
             {
-                objectStream.Seek(BLOCK_HEADER_LENGTH, SeekOrigin.Current);
-                int tCount = objectStream.ReadByte();
+                blockStream.Seek(BLOCK_HEADER_LENGTH, SeekOrigin.Current);
+                int tCount = blockStream.ReadByte();
                 if (tCount == -1)
                     return false;
-                objectStream.Seek(tCount * TRANSACTION_LENGTH, SeekOrigin.Current);
+                blockStream.Seek(tCount * TRANSACTION_LENGTH, SeekOrigin.Current);
                 return true;
             }
             catch (IOException)
@@ -99,12 +168,10 @@ namespace proiect_mds.blockchain.impl
         {
             try
             {
-                using (BinaryReader reader = new BinaryReader(objectStream))
-                {
-                    ulong index = reader.ReadUInt64();
-                    objectStream.Seek(-sizeof(ulong), SeekOrigin.Current);
-                    return index;
-                }
+                using BinaryReader reader = new BinaryReader(blockStream);
+                ulong index = reader.ReadUInt64();
+                blockStream.Seek(-sizeof(ulong), SeekOrigin.Current);
+                return index;
             }
             catch (IOException)
             {
@@ -114,23 +181,23 @@ namespace proiect_mds.blockchain.impl
         }
         private bool MakeRoomForBlock(Block block)
         {
-            long currentLength = objectStream.Length;
-            long offset = BLOCK_HEADER_LENGTH + block.Transactions.Count * TRANSACTION_LENGTH;
-            long pos = objectStream.Position;
-            objectStream.SetLength(currentLength + offset);
-            objectStream.Seek(-offset, SeekOrigin.End);
-
+            long currentLength = blockStream.Length;
+            long offset = currentLength + BLOCK_HEADER_LENGTH + block.Transactions.Count * TRANSACTION_LENGTH;
+            blockStream.Seek(0, SeekOrigin.End);
+            blockStream.SetLength(offset);
             return true;
         }
-        protected override bool WriteToStream(Block block)
-        {
-            ulong? pIndex;
-            while ((pIndex = GetSeekBlockIndex()) != null &&
-                pIndex < block.Index)
-                SkipBlock();
-            if (pIndex == block.Index)
-                return true;
+        private bool WriteBlockToStream(Block block)
+        {   
             MakeRoomForBlock(block);
+            blockStream.Write(BitConverter.GetBytes(block.Index).Reverse().ToArray());
+            blockStream.Write(BitConverter.GetBytes(block.Timestamp.Ticks).Reverse().ToArray());
+            if (block.PreviousHash != null)
+            {
+                blockStream.Write(block.PreviousHash.Value);
+            }
+            blockStream.Write(block.ValidatorId.Value);
+            blockStream.Write(BitConverter.GetBytes(block.Transactions.Count).Reverse().ToArray());
             return true;
         }
     }

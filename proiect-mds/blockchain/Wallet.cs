@@ -20,6 +20,11 @@ namespace proiect_mds.blockchain
         [ProtoMember(1)]
         private readonly byte[] value = new byte[WID_LENGTH];
 
+        public byte[] Value
+        {
+            get { return value; }
+        }
+
         public WalletId(byte[] data)
         {
             if (data.Length != WID_LENGTH)

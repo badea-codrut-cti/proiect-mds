@@ -30,7 +30,7 @@ namespace proiect_mds.blockchain
                 throw new TransactionException("Signature length is invalid.");
 
             if (amount > 0x7FFFFFFFFFFFFFFF)
-                throw new TransactionException("Amount is bigger than 2^63");
+                throw new TransactionException("Amount is higher or equal to 2^63.");
 
             this.Sender = sender;
             this.Receiver = receiver;
@@ -57,8 +57,8 @@ namespace proiect_mds.blockchain
 
         public Block(ulong index, DateTime timestamp, Hash? previousHash, WalletId validatorId, List<Transaction> transactions)
         {
-            if (transactions.Count == 0 || transactions.Count > 0xFF)
-                throw new BlockException("Cannot have an empty block or a block with more than 255 transactions.");
+            if (transactions.Count == 0 && index != 0)
+                throw new BlockException("Cannot have an empty block unless it is the genesis block.");
 
             if (previousHash == null && index != 0)
                 throw new BlockException("Only the genesis block can lack a previous hash.");

@@ -7,9 +7,12 @@ using System.Threading.Tasks;
 
 namespace proiect_mds.blockchain.impl
 {
-    internal class FSKeychain : FSIteratorUtil<PublicWallet>
+    internal class FSKeychain : WalletIterator
     {
-        public FSKeychain(Stream stream, int maxCache) : base(stream, maxCache) { }
+        public FSKeychain(Stream stream, int maxCache)
+        {
+        
+        }
         protected override PublicWallet? ReadFromStream()
         {
             try
