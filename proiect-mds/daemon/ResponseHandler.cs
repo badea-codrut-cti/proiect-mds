@@ -24,6 +24,7 @@ namespace proiect_mds.daemon
                 var response = new NodeWelcome(HelloResponseCode.BadRequest);
                 Serializer.SerializeWithLengthPrefix<NodeWelcome>(networkStream, response, PrefixStyle.Fixed32);
                 client.Close();
+                return;
             }
 
             switch (helloPacket.RequestType)
@@ -55,19 +56,39 @@ namespace proiect_mds.daemon
             }
 
             var latestBlock = blockchain.GetLatestBlock();
-            if (latestBlock == null)
+            if (latestBlock == null || lastKnownBlock.Index >= latestBlock.Index)
             {
                 return;
             }
 
             UInt64 cIndex = lastKnownBlock.Index;
+            var nextBlock = blockchain.GetBlock(cIndex);
+            if (nextBlock == null)
+            {
+                var response = new SyncChainResponse(SyncChainResponseType.BlockNotFound, null);
+                Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                return;
+            }
+
+            if (Hash.FromBlock(nextBlock) == Hash.FromBlock(lastKnownBlock))
+            {
+                var response = new SyncChainResponse(SyncChainResponseType.HashMismatch, null);
+                Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                return;
+            }
+
             while (cIndex < latestBlock.Index)
             {
-                var nextBlock = blockchain.GetBlock(cIndex);
-                
+                nextBlock = blockchain.GetBlock(cIndex++);
+                if (nextBlock == null)
+                {
+                    var response = new SyncChainResponse(SyncChainResponseType.BlockNotFound, null);
+                    Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                    return;
+                }
             }
         }
-        public static async Task<T> DecodeMessage<T>(NetworkStream stream) where T : class
+        public static async Task<T> DecodeMessage<T>(Stream stream) where T : class
         {
             byte[] lengthBytes = new byte[4];
             await stream.ReadAsync(lengthBytes.AsMemory(0, 4));

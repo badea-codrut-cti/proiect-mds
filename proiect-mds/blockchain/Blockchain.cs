@@ -26,7 +26,7 @@ namespace proiect_mds.blockchain
         public abstract void Dispose();
         public abstract PublicWallet Current { get; }
         object IEnumerator.Current => Current;
-        public abstract bool AddWallet(PublicWallet block);
+        public abstract bool AddWallet(PublicWallet pWallet);
     }
 
     internal class Blockchain
@@ -123,7 +123,7 @@ namespace proiect_mds.blockchain
 
         public static bool IsGenesisBlock(Block block)
         {
-            return block.PreviousHash != null && block.Transactions.Count == 0 && block.Index == 0;
+            return block.PreviousHash != null && block.Transactions.Count == 0 && block.Index == 0 ;
         }
     }
 }

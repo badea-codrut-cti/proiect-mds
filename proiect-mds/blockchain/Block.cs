@@ -69,5 +69,11 @@ namespace proiect_mds.blockchain
             this.ValidatorId = validatorId;
             this.Transactions = transactions;
         }
+
+        /*public static Block GenesisBlock()
+        {
+            TODO: Create master wallet
+            return new Block(0, new DateTime(2003, 12, 9), null)
+        }*/ 
     }
 }

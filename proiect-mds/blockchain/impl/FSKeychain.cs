@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace proiect_mds.blockchain.impl
 {
-    internal class FSKeychain : WalletIterator
+    /*internal class FSKeychain : WalletIterator
     {
         public FSKeychain(Stream stream, int maxCache)
         {
@@ -33,5 +33,5 @@ namespace proiect_mds.blockchain.impl
             //objectStream.Write(obj.PublicKey.);
             return true;
         }
-    }
+    }*/
 }

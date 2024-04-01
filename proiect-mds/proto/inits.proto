@@ -76,7 +76,7 @@ message BCNodeAdvertiseResponse {
 
 message BCSyncChainRequest {
 	uint64 last_known_block_index = 1; 
-	Hash last_known_block_hash = 2;
+	optional Hash last_known_block_hash = 2;
 }
 
 enum BCSyncResponseType {

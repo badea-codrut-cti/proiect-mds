@@ -12,18 +12,30 @@ namespace proiect_mds.daemon.packets
     [ProtoContract]
     public enum RequestType
     {
-        AskForPeers,
-        SyncBlockchain,
-        BroadcastTransaction
+        [EnumMember]
+        [ProtoEnum]
+        AskForPeers = 1,
+        [EnumMember]
+        [ProtoEnum]
+        SyncBlockchain = 2,
+        [EnumMember]
+        [ProtoEnum]
+        BroadcastTransaction = 3
     }
 
     [DataContract]
     [ProtoContract]
     public enum HelloResponseCode
     {
-        VersionMismatch,
-        BadRequest,
-        Success
+        [EnumMember]
+        [ProtoEnum]
+        VersionMismatch = 1,
+        [EnumMember]
+        [ProtoEnum]
+        BadRequest = 2,
+        [EnumMember]
+        [ProtoEnum]
+        Success = 3
     }
 
     [ProtoContract]
@@ -35,10 +47,11 @@ namespace proiect_mds.daemon.packets
         public UInt32 Port { get; private set; }
         [ProtoMember(3)]
         public RequestType RequestType { get; private set; }
-        public NodeHello(UInt32 version, UInt32 port) 
+        public NodeHello(UInt32 version, UInt32 port, RequestType requestType) 
         { 
             this.Version = version;
             this.Port = port;
+            this.RequestType = requestType;
         }
     }
 

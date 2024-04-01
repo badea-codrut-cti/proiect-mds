@@ -51,15 +51,22 @@ namespace proiect_mds.blockchain
         private readonly ECPrivateKeyParameters privateKeyParams;
         public static int PRIVATE_KEY_LENGTH = 160;
 
-        public PrivateKey(string data)
+        public PrivateKey(string PemString)
         {
             try
             {
-                var rdr = new PemReader(new StringReader(data));
+                if (PemString.Length != PRIVATE_KEY_LENGTH)
+                    throw new PrivateKeyException("Invalid private key length.");
+
+                var rdr = new PemReader(new StringReader(
+                   "-----BEGIN EC PRIVATE KEY-----" +
+                   PemString +
+                   "-----END EC PRIVATE KEY-----"
+                ));
                 AsymmetricCipherKeyPair keyPair = (AsymmetricCipherKeyPair)rdr.ReadObject();
                 privateKeyParams = (ECPrivateKeyParameters)keyPair.Private;
             } catch(FormatException) {
-                throw new PrivateKeyException("Improperly formatted private key");
+                throw new PrivateKeyException("Improperly formatted private key.");
             }
         }
 
