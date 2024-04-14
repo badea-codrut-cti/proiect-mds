@@ -53,13 +53,17 @@ namespace proiect_mds.daemon.packets
             this.Port = port;
             this.RequestType = requestType;
         }
+        public NodeHello()
+        {
+
+        }
     }
 
     [ProtoContract]
     internal class NodeWelcome
     {
         [ProtoMember(1)]
-        public HelloResponseCode Code {  get; private set; }
+        public HelloResponseCode Code { get; private set; }
         public NodeWelcome(HelloResponseCode code)
         {
             this.Code = code;

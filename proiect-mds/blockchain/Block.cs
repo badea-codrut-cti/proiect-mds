@@ -38,6 +38,10 @@ namespace proiect_mds.blockchain
             this.signature = signature;
             this.Timestamp = timestamp;
         }
+        public Transaction()
+        {
+
+        }
         public byte[] Signature { get { return signature; } }
     }
 
@@ -54,7 +58,6 @@ namespace proiect_mds.blockchain
         public Hash? PreviousHash { get; private set; }
         [ProtoMember(5)]
         public List<Transaction> Transactions { get; private set; }
-
         public Block(ulong index, DateTime timestamp, Hash? previousHash, WalletId validatorId, List<Transaction> transactions)
         {
             if (transactions.Count == 0 && index != 0)
@@ -69,11 +72,13 @@ namespace proiect_mds.blockchain
             this.ValidatorId = validatorId;
             this.Transactions = transactions;
         }
-
-        /*public static Block GenesisBlock()
+        public Block()
         {
-            TODO: Create master wallet
-            return new Block(0, new DateTime(2003, 12, 9), null)
-        }*/ 
+
+        }
+        public static Block GenesisBlock()
+        {
+           return new Block(0, new DateTime(2003, 12, 9), null, WalletId.MasterWalletId(), new List<Transaction>());
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using proiect_mds.daemon.packets;
+﻿using proiect_mds.blockchain;
+using proiect_mds.daemon.packets;
 using ProtoBuf;
 using System;
 using System.Collections.Generic;
@@ -13,23 +14,175 @@ namespace proiect_mds.daemon
 {
     internal class Daemon
     {
+        public static uint VERSION = 1;
         public int Port { get; private set; }
-        private readonly ResponseHandler responseHandler;
-        public Daemon(ResponseHandler responseHandler, int port = 9005)
+        private Blockchain blockchain;
+        public List<Validator> Validators { get; private set; } = [];
+        public List<Transaction> TransactionsQueued { get; private set; } = [];
+        private bool isStarted = true;
+        public List<NodeAddressInfo> Peers { get; private set; }
+        public Daemon(Blockchain blockchain, int port = 9005)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(port);
             Port = port;
-            this.responseHandler = responseHandler;
+            Peers = [];
+            this.blockchain = blockchain;
         }
         public async Task StartAsync()
         {
             using var listener = new TcpListener(IPAddress.Any, Port);
             listener.Start();
 
-            while (true)
+            HandleTimedValdidation();
+
+            while (isStarted)
             {
                 var client = await listener.AcceptTcpClientAsync();
-                _ = Task.Run(async () => await responseHandler.HandleResponse(client));
+                _ = Task.Run(async () => await HandleResponse(client));
+            }
+        }
+        public void HandleTimedValdidation()
+        {
+            _ = Task.Run(() =>
+            {
+                while (isStarted)
+                {
+                    var dateNow = DateTime.Now;
+                    if (dateNow.Second == 30 && TransactionsQueued.Count >= ValidatorSelector.MIN_TRANSACTIONS)
+                    {
+                        var lastBlock = blockchain.GetLatestBlock();
+                        var tempBlock = new Block(lastBlock.Index + 1, DateTime.Now, Hash.FromBlock(lastBlock), WalletId.MasterWalletId(), TransactionsQueued);
+                        var validatorSelector = new ValidatorSelector(Validators, tempBlock);
+                        var selected = validatorSelector.GetPickedValidator();
+                        Validators.Clear();
+                        TransactionsQueued.Clear();
+                        blockchain.AddBlock(new Block(tempBlock.Index, dateNow, tempBlock.PreviousHash, selected.WalletId, tempBlock.Transactions));
+                    }
+                    Thread.Sleep(1000);
+                }
+            });
+        }
+        public bool BroadcastTransaction(Transaction transaction)
+        {
+            return true;
+        }
+
+        public void Stop()
+        {
+            isStarted = false;
+        }
+
+        public async Task HandleResponse(TcpClient client)
+        {
+            using var networkStream = client.GetStream();
+            var helloPacket = DecodeMessage<NodeHello>(networkStream);
+            if (helloPacket == null)
+            {
+                var response = new NodeWelcome(HelloResponseCode.BadRequest);
+                Serializer.SerializeWithLengthPrefix<NodeWelcome>(networkStream, response, PrefixStyle.Fixed32);
+                client.Close();
+                return;
+            }
+            switch (helloPacket.RequestType)
+            {
+                case RequestType.SyncBlockchain:
+                    {
+                        HandleSyncChain(networkStream);
+                        break;
+                    }
+                case RequestType.BroadcastTransaction:
+                    {
+                        ReceiveTransactionMessage(networkStream); 
+                        break;  
+                    }
+            }
+        }
+        public void HandleSyncChain(NetworkStream networkStream)
+        {
+            var syncInitPacket = DecodeMessage<SyncChainRequest>(networkStream);
+            if (syncInitPacket == null)
+            {
+                return;
+            }
+
+            var lastKnownBlock = blockchain.GetBlock(syncInitPacket.LastKnownBlockIndex);
+            if (lastKnownBlock == null)
+            {
+                return;
+            }
+
+            if (Hash.FromBlock(lastKnownBlock) != syncInitPacket.LastKnownBlockHash)
+            {
+                return;
+            }
+
+            var latestBlock = blockchain.GetLatestBlock();
+            if (latestBlock == null || lastKnownBlock.Index >= latestBlock.Index)
+            {
+                return;
+            }
+
+            UInt64 cIndex = lastKnownBlock.Index;
+            var nextBlock = blockchain.GetBlock(cIndex);
+            if (nextBlock == null)
+            {
+                var response = new SyncChainResponse(SyncChainResponseType.BlockNotFound, null);
+                Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                return;
+            }
+
+            if (Hash.FromBlock(nextBlock) == Hash.FromBlock(lastKnownBlock))
+            {
+                var response = new SyncChainResponse(SyncChainResponseType.HashMismatch, null);
+                Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                return;
+            }
+
+            while (cIndex < latestBlock.Index)
+            {
+                try
+                {
+                    nextBlock = blockchain.GetBlock(cIndex++);
+                    if (nextBlock == null)
+                    {
+                        var response = new SyncChainResponse(SyncChainResponseType.BlockNotFound, null);
+                        Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                        return;
+                    }
+                }
+                catch (Exception)
+                {
+                    var response = new SyncChainResponse(SyncChainResponseType.BlockNotFound, null);
+                    Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                    return;
+                }
+            }
+        }
+        public void ReceiveTransactionMessage(NetworkStream networkStream)
+        {
+            var trans = DecodeMessage<Transaction>(networkStream);
+            if (trans == null)
+                return;
+            if (TransactionsQueued.Exists(tr => tr == trans))
+            {
+                var aReceived = new BroadcastTransactionResponse(BroadcastTransactionResponseCode.AlreadyReceived);
+                Serializer.SerializeWithLengthPrefix(networkStream, aReceived, PrefixStyle.Fixed32);
+                return;
+            }
+            TransactionsQueued.Add(trans);
+            var resp = new BroadcastTransactionResponse(BroadcastTransactionResponseCode.Okay);
+            Serializer.SerializeWithLengthPrefix(networkStream, resp, PrefixStyle.Fixed32);
+        }
+        public static T? DecodeMessage<T>(Stream stream) where T : class
+        {
+            try
+            {
+                var ret = Serializer.DeserializeWithLengthPrefix<T>(stream, PrefixStyle.Fixed32);
+                return ret;
+            } catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return null;
             }
         }
     }

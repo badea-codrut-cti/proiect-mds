@@ -37,6 +37,7 @@ namespace proiect_mds.blockchain
         {
             this.blockIterator = blockIterator;
             this.walletIterator = walletIterator;
+            AddBlock(Block.GenesisBlock());
         }
 
         public UInt64? GetWalletBalance(WalletId walletId)
@@ -123,7 +124,7 @@ namespace proiect_mds.blockchain
 
         public static bool IsGenesisBlock(Block block)
         {
-            return block.PreviousHash != null && block.Transactions.Count == 0 && block.Index == 0 ;
+            return block.Index == 0;
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using proiect_mds.blockchain;
 using proiect_mds.blockchain.impl;
 using proiect_mds.daemon;
+using proiect_mds.daemon.client;
 using proiect_mds.daemon.packets;
 using ProtoBuf;
 using System;
@@ -29,16 +30,42 @@ namespace proiect_mds.UnitTests
             var memoryBlockIterator = new MemoryBlockIterator();
             var memoryWalletIterator = new MemoryWalletIterator();
             var blockchain = new Blockchain(memoryBlockIterator, memoryWalletIterator);
-            var respHandler = new ResponseHandler(blockchain);
-            var daemon = new Daemon(respHandler, 9005);
+            var daemon = new Daemon(blockchain, 9005);
             daemon.StartAsync();
 
             var tcpClient = new TcpClient("localhost", 9005);
             var stream = tcpClient.GetStream();
             var helloPacket = new NodeHello(1, 9906, RequestType.SyncBlockchain);
             Serializer.SerializeWithLengthPrefix<NodeHello>(stream, helloPacket, PrefixStyle.Fixed32);
-            var syncReqPacket = new SyncChainRequest(0, Hash.FromBlock());
+            var syncReqPacket = new SyncChainRequest(0, Hash.FromBlock(Block.GenesisBlock()));
+            Serializer.SerializeWithLengthPrefix<SyncChainRequest>(stream, syncReqPacket, PrefixStyle.Fixed32);
             tcpClient.Close();
+            daemon.Stop();
+        }
+
+        
+        [TestMethod]
+        public async Task BroadcastTransaction()
+        {
+            var senderId = new WalletId(Encoding.UTF8.GetBytes("0123456789ABCDEF"));
+            var receiverId = new WalletId(Encoding.UTF8.GetBytes("123456789ABCDEFG"));
+
+            var key = new PrivateKey(KeyBasedSignChecks.privateKeyString);
+            var transaction = key.SignTransaction(senderId, receiverId, 100, DateTime.Now);
+            Assert.IsNotNull(transaction);
+
+            var nodeInfo = new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 9005);
+
+            var memoryBlockIterator = new MemoryBlockIterator();
+            var memoryWalletIterator = new MemoryWalletIterator();
+            var blockchain = new Blockchain(memoryBlockIterator, memoryWalletIterator);
+            var daemon = new Daemon(blockchain, 9005);
+            daemon.StartAsync();
+
+            NodeConnection.BroadcastTransaction([nodeInfo], 9091, transaction);
+            Assert.IsTrue(daemon.TransactionsQueued.Count == 1);
+
+            daemon.Stop();
         }
     }
 }

@@ -10,10 +10,12 @@ namespace proiect_mds.UnitTests
     [TestClass]
     public class KeyBasedSignChecks
     {
+        public static string privateKeyString = "MHQCAQEEICYLBvaZ2/NWEOhSJGWF+yNUIBgebDEIoEl1i0mHUUbtoAcGBSuBBAAKoUQDQgAECk6OstRglNkGmV/jTjV2k0apW+ViPuYFUmCdRNYOy0/Hac0s4hit57N2QryIK0PSxEIMAG2tkb4hj5uYpLWM2w==";
+        public static string publicKeyString = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAECk6OstRglNkGmV/jTjV2k0apW+ViPuYFUmCdRNYOy0/Hac0s4hit57N2QryIK0PSxEIMAG2tkb4hj5uYpLWM2w==";
         [TestMethod]
         public void SignTransaction()
         {
-            const string privateKeyString = "MHQCAQEEICYLBvaZ2/NWEOhSJGWF+yNUIBgebDEIoEl1i0mHUUbtoAcGBSuBBAAKoUQDQgAECk6OstRglNkGmV/jTjV2k0apW+ViPuYFUmCdRNYOy0/Hac0s4hit57N2QryIK0PSxEIMAG2tkb4hj5uYpLWM2w==";
+           
             var sender = new WalletId(Encoding.UTF8.GetBytes("0123456789abcdef"));
             var receiver = new WalletId(Encoding.UTF8.GetBytes("0123456789ABCDEF"));
 
@@ -23,7 +25,6 @@ namespace proiect_mds.UnitTests
             var transaction = key.SignTransaction(sender, receiver, 100, new DateTime(0xFFEEDDCCAA01));
             Assert.IsNotNull(transaction);
 
-            const string publicKeyString = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAECk6OstRglNkGmV/jTjV2k0apW+ViPuYFUmCdRNYOy0/Hac0s4hit57N2QryIK0PSxEIMAG2tkb4hj5uYpLWM2w==";
             var pubKey = new PublicKey(publicKeyString);
             Assert.IsTrue(pubKey.ValidateTransaction(transaction));
         }

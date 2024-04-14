@@ -89,3 +89,9 @@ message BCSyncChainResponse {
 	BCSyncResponseType response_type = 1;
 	optional Block block = 2;
 }
+
+enum BCBroadcastTransactionResponseCode {
+	OKAY = 1;
+	INVALID_TRANSACTION = 2;
+	ALREADY_RECEIVED = 3;
+}

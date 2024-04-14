@@ -31,7 +31,7 @@ namespace proiect_mds.blockchain.impl
             {
                 if (cIndex >= Blocks.Count)
                 {
-                    throw new InvalidOperationException("Iterator is positioned before the first element or after the last element.");
+                    throw new InvalidOperationException("Reached end of blockchain.");
                 }
                 return Blocks[cIndex];
             }

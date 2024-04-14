@@ -24,7 +24,6 @@ namespace proiect_mds.blockchain
         {
             get { return value; }
         }
-
         public WalletId(byte[] data)
         {
             if (data.Length != WID_LENGTH)
@@ -34,15 +33,26 @@ namespace proiect_mds.blockchain
 
             this.value = data;
         }
-
+        public WalletId() { }
         public override string ToString()
         {
             return WID_PREFIX + Convert.ToHexString(value);
         }
-
         public byte[] ToBytes()
         {
             return value;
+        }
+        public static WalletId MasterWalletId()
+        {
+            var walletId = new byte[WID_LENGTH];
+            for (int i = 0; i < WID_LENGTH; i++)
+            {
+                if (i != WID_LENGTH - 1)
+                    walletId[i] = 0;
+                else
+                    walletId[i] = 1;
+            }
+            return new WalletId(walletId);
         }
     }
 
@@ -102,6 +112,7 @@ namespace proiect_mds.blockchain
             }
             this.PemString = pKey;
         }
+        public PublicKey() { }
         public bool ValidateTransaction(Transaction transaction)
         {
             var rdr = new PemReader(new StringReader(
@@ -135,13 +146,17 @@ namespace proiect_mds.blockchain
         public WalletId Identifier { get; private set; }
         [ProtoMember(2)]
         public PublicKey PublicKey { get; private set; }
-
         public PublicWallet(WalletId identifier, PublicKey publicKey)
         {
             Identifier = identifier;
             PublicKey = publicKey;
         }
-
+        public PublicWallet() { }
+        public static PublicWallet MasterWallet()
+        {
+            var pKey = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEldg0iRPZCBeNLb3AeCE0JfLghwkwItRG/+U3uwYLicULXEDz9hjG9tFR52fxsseF/z41cwvCS14tBk+pK/CmfQ==";
+            return new PublicWallet(WalletId.MasterWalletId(), new PublicKey(pKey));
+        }
     }
 
     internal class Wallet

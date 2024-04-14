@@ -22,6 +22,7 @@ namespace proiect_mds.blockchain
                 Buffer.BlockCopy(sha256.ComputeHash(data), 0, value, 0, value.Length);
             }
         }
+        public Hash() { }
 
         public byte[] Value
         {

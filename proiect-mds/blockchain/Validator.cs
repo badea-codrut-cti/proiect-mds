@@ -25,6 +25,7 @@ namespace proiect_mds.blockchain
         public static uint MAX_STAKE = 30;
         public static uint MIN_STAKE = 1;
         public static uint MAX_VALIDATOR_COUNT = 100000;
+        public static uint MIN_TRANSACTIONS = 3;
         public List<Validator> Validators { get; private set; }
         public Block Block { get; private set; }
 
@@ -35,6 +36,9 @@ namespace proiect_mds.blockchain
 
             if (validators.Count > MAX_VALIDATOR_COUNT / MIN_STAKE)
                 throw new ArgumentException("Validator list is too large.");
+
+            if (block.Transactions.Count < MIN_TRANSACTIONS)
+                throw new ArgumentException("Block has less than minimal transaction count for validation process.");
 
             Validators = validators;
             Block = block;

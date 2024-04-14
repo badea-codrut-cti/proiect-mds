@@ -22,6 +22,7 @@ namespace proiect_mds.daemon.packets
             this.LastKnownBlockIndex = lastKnownBlockIndex;
             this.LastKnownBlockHash = lastKnownBlockHash;
         }
+        public SyncChainRequest() { }
     }
 
     [DataContract]
@@ -55,5 +56,6 @@ namespace proiect_mds.daemon.packets
             this.responseType = responseType;
             this.Block = block;
         }
+        public SyncChainResponse() { }
     }
 }
