@@ -62,17 +62,13 @@ namespace proiect_mds.daemon
                 }
             });
         }
-        public bool BroadcastTransaction(Transaction transaction)
-        {
-            return true;
-        }
 
         public void Stop()
         {
             isStarted = false;
         }
 
-        public async Task HandleResponse(TcpClient client)
+        private async Task HandleResponse(TcpClient client)
         {
             using var networkStream = client.GetStream();
             var helloPacket = DecodeMessage<NodeHello>(networkStream);
@@ -83,6 +79,12 @@ namespace proiect_mds.daemon
                 client.Close();
                 return;
             }
+            var ip = (IPEndPoint?)client.Client.RemoteEndPoint;
+            if (ip != null)
+            {
+                var newPeer = new NodeAddressInfo(BitConverter.ToUInt32(ip.Address.GetAddressBytes()), helloPacket.Port);
+                Peers.Add(newPeer);
+            } 
             switch (helloPacket.RequestType)
             {
                 case RequestType.SyncBlockchain:
@@ -95,9 +97,19 @@ namespace proiect_mds.daemon
                         ReceiveTransactionMessage(networkStream); 
                         break;  
                     }
+                case RequestType.AskForPeers:
+                    {
+                        BroadcastPeers(networkStream);
+                        break;
+                    }
+                case RequestType.BecomeValidator:
+                    {
+                        AcceptValidator(networkStream);
+                        break;
+                    }
             }
         }
-        public void HandleSyncChain(NetworkStream networkStream)
+        private void HandleSyncChain(NetworkStream networkStream)
         {
             var syncInitPacket = DecodeMessage<SyncChainRequest>(networkStream);
             if (syncInitPacket == null)
@@ -134,7 +146,7 @@ namespace proiect_mds.daemon
             if (Hash.FromBlock(nextBlock) == Hash.FromBlock(lastKnownBlock))
             {
                 var response = new SyncChainResponse(SyncChainResponseType.HashMismatch, null);
-                Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                Serializer.SerializeWithLengthPrefix(networkStream, response, PrefixStyle.Fixed32);
                 return;
             }
 
@@ -146,19 +158,19 @@ namespace proiect_mds.daemon
                     if (nextBlock == null)
                     {
                         var response = new SyncChainResponse(SyncChainResponseType.BlockNotFound, null);
-                        Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                        Serializer.SerializeWithLengthPrefix(networkStream, response, PrefixStyle.Fixed32);
                         return;
                     }
                 }
                 catch (Exception)
                 {
                     var response = new SyncChainResponse(SyncChainResponseType.BlockNotFound, null);
-                    Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                    Serializer.SerializeWithLengthPrefix(networkStream, response, PrefixStyle.Fixed32);
                     return;
                 }
             }
         }
-        public void ReceiveTransactionMessage(NetworkStream networkStream)
+        private void ReceiveTransactionMessage(NetworkStream networkStream)
         {
             var trans = DecodeMessage<Transaction>(networkStream);
             if (trans == null)
@@ -172,6 +184,39 @@ namespace proiect_mds.daemon
             TransactionsQueued.Add(trans);
             var resp = new BroadcastTransactionResponse(BroadcastTransactionResponseCode.Okay);
             Serializer.SerializeWithLengthPrefix(networkStream, resp, PrefixStyle.Fixed32);
+        }
+        private void AcceptValidator(NetworkStream networkStream)
+        {
+            var elect = DecodeMessage<BecomeValidatorPacket>(networkStream);
+            if (elect == null)
+            {
+                var response = new ValidatorResponsePacket(ValidatorResponseType.BadFormatting);
+                Serializer.SerializeWithLengthPrefix(networkStream, response, PrefixStyle.Fixed32);
+                return;
+            }
+            var balance = blockchain.GetWalletBalance(elect.WalletId);
+            var publicKey = blockchain.GetKeyFromWalletId(elect.WalletId);
+            if (publicKey == null || balance == null || balance < elect.Stake)
+            {
+                var response = new ValidatorResponsePacket(ValidatorResponseType.InvalidWalletOrBalance);
+                Serializer.SerializeWithLengthPrefix(networkStream, response, PrefixStyle.Fixed32);
+                return;
+            }
+            var valid = publicKey.ValidateElectionSignature(elect.WalletId, elect.Timestamp, elect.Stake, elect.Signature);
+            if (!valid)
+            {
+                var response = new ValidatorResponsePacket(ValidatorResponseType.BadSignature);
+                Serializer.SerializeWithLengthPrefix(networkStream, response, PrefixStyle.Fixed32);
+                return;
+            }
+            Validators.Add(new Validator(elect.WalletId, elect.Stake));
+            Serializer.SerializeWithLengthPrefix(networkStream, new ValidatorResponsePacket(ValidatorResponseType.Accepted), PrefixStyle.Fixed32);
+        }
+        private void BroadcastPeers(NetworkStream networkStream)
+        {
+            var peerPacket = new NodeAdvertiseResponse(Peers);
+            Serializer.SerializeWithLengthPrefix(networkStream, peerPacket, PrefixStyle.Fixed32);
+            return;
         }
         public static T? DecodeMessage<T>(Stream stream) where T : class
         {

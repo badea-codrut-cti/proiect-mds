@@ -9,6 +9,7 @@ using Org.BouncyCastle.OpenSsl;
 using System.Globalization;
 using Org.BouncyCastle.Crypto.Digests;
 using proiect_mds.blockchain.exception;
+using System.Transactions;
 
 namespace proiect_mds.blockchain
 {
@@ -136,6 +137,32 @@ namespace proiect_mds.blockchain
             var s = new BigInteger(sBytes);
 
             return signer.VerifySignature(transactionData, r, s);
+        }
+        public bool ValidateElectionSignature(WalletId wId, DateTime timestamp, uint stake, byte[] signature)
+        {
+            if (signature.Length != Transaction.SIGNATURE_LENGTH)
+                return false;
+
+            var rdr = new PemReader(new StringReader(
+                "-----BEGIN PUBLIC KEY-----" +
+                PemString +
+                "-----END PUBLIC KEY-----"
+             ));
+            var publicKeyParams = (ECPublicKeyParameters)rdr.ReadObject();
+
+            var signer = new ECDsaSigner();
+            signer.Init(false, publicKeyParams);
+            string formattedTimestamp = timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
+            byte[] packetData = Encoding.UTF8.GetBytes($"{wId}{stake}{formattedTimestamp}");
+            byte[] rBytes = new byte[Transaction.SIGNATURE_LENGTH / 2];
+            Buffer.BlockCopy(signature, 0, rBytes, 0, rBytes.Length);
+            var r = new BigInteger(rBytes);
+
+            byte[] sBytes = new byte[Transaction.SIGNATURE_LENGTH / 2];
+            Buffer.BlockCopy(signature, Transaction.SIGNATURE_LENGTH / 2, sBytes, 0, sBytes.Length);
+            var s = new BigInteger(sBytes);
+
+            return signer.VerifySignature(packetData, r, s);
         }
     }
 

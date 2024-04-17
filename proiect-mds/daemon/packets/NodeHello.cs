@@ -20,7 +20,10 @@ namespace proiect_mds.daemon.packets
         SyncBlockchain = 2,
         [EnumMember]
         [ProtoEnum]
-        BroadcastTransaction = 3
+        BroadcastTransaction = 3,
+        [EnumMember]
+        [ProtoEnum]
+        BecomeValidator = 4
     }
 
     [DataContract]

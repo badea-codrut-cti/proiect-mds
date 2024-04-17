@@ -19,6 +19,7 @@ namespace proiect_mds.daemon.packets
             IPv4 = ipv4;
             Port = port;
         }
+        public NodeAddressInfo() { }    
     }
 
     [ProtoContract]
@@ -27,11 +28,12 @@ namespace proiect_mds.daemon.packets
         [ProtoMember(1)]
         public UInt32 NodeCount { get; private set; }
         [ProtoMember(2)]
-        public List<NodeAddressInfo> nodes { get; private set; }
+        public List<NodeAddressInfo> Nodes { get; private set; }
         public NodeAdvertiseResponse(List<NodeAddressInfo> nodes)
         {
             NodeCount = (uint)nodes.Count;
-            this.nodes = nodes;
+            this.Nodes = nodes;
         }
+        public NodeAdvertiseResponse() { }
     }
 }

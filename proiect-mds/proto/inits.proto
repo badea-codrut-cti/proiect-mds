@@ -42,6 +42,7 @@ enum HelloRequestType {
 	ASK_FOR_PEERS = 1;
 	SYNC_BLOCKCHAIN = 2;
 	BROADCAST_TRANSACTION = 3;
+	BECOME_VALIDATOR = 4;
 }
 
 message BCHello {
@@ -94,4 +95,22 @@ enum BCBroadcastTransactionResponseCode {
 	OKAY = 1;
 	INVALID_TRANSACTION = 2;
 	ALREADY_RECEIVED = 3;
+}
+
+message BCBecomeValidator {
+	WalletId wId = 1;
+	uint32 stake = 2;
+	google.protobuf.Timestamp timestamp = 3;
+	bytes signature = 4;
+}
+
+enum BCValidatorResponseType {
+	ACCEPTED = 1;
+	INVALID_WALLET_OR_BALANCE = 2;
+	BAD_FORMAT = 3;
+	BAD_SIGNATURE = 4;
+}
+
+message BCValidatorResponsePacket {
+	BCValidatorResponseType response_type = 1;
 }

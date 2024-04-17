@@ -81,5 +81,20 @@ namespace proiect_mds.daemon.client
                 con.client.Close();
             }
         }
+        public static List<NodeAddressInfo> AskForPeers(List<NodeAddressInfo> peers, uint daemonPort)
+        {
+            List<NodeAddressInfo> ret = new();
+            foreach (var peer in peers)
+            {
+                var con = new NodeConnection(peer, daemonPort, RequestType.AskForPeers);
+                var stream = con.client.GetStream();
+                var resp = Daemon.DecodeMessage<NodeAdvertiseResponse>(stream);
+                if (resp == null)
+                    continue;
+                ret = ret.Concat(resp.Nodes).ToList();
+                con.client.Close();
+            }
+            return ret;
+        }
     }
 }
