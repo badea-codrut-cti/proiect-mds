@@ -10,7 +10,7 @@ namespace proiect_mds.blockchain.impl
 {
     internal class MemoryBlockIterator : BlockIterator
     {
-        private readonly List<Block> Blocks = [];
+        private List<Block> Blocks = [];
         private Int32 cIndex = 0;
         public MemoryBlockIterator()
         {
@@ -45,7 +45,7 @@ namespace proiect_mds.blockchain.impl
 
     internal class MemoryWalletIterator : WalletIterator
     {
-        private readonly List<PublicWallet> KeyChain = [];
+        private List<PublicWallet> KeyChain = [];
         private Int32 cIndex = 0;
         public MemoryWalletIterator()
         {

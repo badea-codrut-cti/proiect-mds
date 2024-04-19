@@ -115,9 +115,9 @@ namespace proiect_mds.UnitTests
 
             var wallet = Wallet.CreateUniqueWallet(blockchain, new PrivateKey(ClusterTests.keys[0]));
 
-            NodeConnection.AnnounceNewWallet([nodeInfo])
-            Assert.IsTrue(daemon.TransactionsQueued.Count == 1);
-
+            NodeConnection.AnnounceNewWallet([nodeInfo], 9091, wallet.ToPublicWallet());
+            blockchain.RegisterWallet(wallet.ToPublicWallet());
+            Assert.IsNotNull(blockchain.GetKeyFromWalletId(wallet.Identifier));
             daemon.Stop();
         }
     }

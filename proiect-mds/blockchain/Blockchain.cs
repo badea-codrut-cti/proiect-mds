@@ -83,11 +83,18 @@ namespace proiect_mds.blockchain
         }
         public PublicKey? GetKeyFromWalletId(WalletId walletId)
         {
-            while (walletIterator.MoveNext())
+            walletIterator.Reset();
+            do
             {
-                if (walletIterator.Current.Identifier == walletId)
-                    return walletIterator.Current.PublicKey;
-            }
+                try
+                {
+                    if (walletIterator.Current.Identifier == walletId)
+                        return walletIterator.Current.PublicKey;
+                } catch (InvalidOperationException)
+                {
+                    return null;
+                }
+            } while (walletIterator.MoveNext());
 
             return null;
         }

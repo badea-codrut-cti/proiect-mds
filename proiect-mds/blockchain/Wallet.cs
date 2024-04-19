@@ -60,6 +60,7 @@ namespace proiect_mds.blockchain
     internal class PrivateKey
     {
         private readonly ECPrivateKeyParameters privateKeyParams;
+        private readonly ECPublicKeyParameters publicKeyParams;
         public static int PRIVATE_KEY_LENGTH = 160;
 
         public PrivateKey(string PemString)
@@ -76,6 +77,7 @@ namespace proiect_mds.blockchain
                 ));
                 AsymmetricCipherKeyPair keyPair = (AsymmetricCipherKeyPair)rdr.ReadObject();
                 privateKeyParams = (ECPrivateKeyParameters)keyPair.Private;
+                publicKeyParams = (ECPublicKeyParameters)keyPair.Public;
             } catch(FormatException) {
                 throw new PrivateKeyException("Improperly formatted private key.");
             }
@@ -94,6 +96,16 @@ namespace proiect_mds.blockchain
             Buffer.BlockCopy(rBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH / 2 - rBytes.Length, rBytes.Length);
             Buffer.BlockCopy(sBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH - sBytes.Length, sBytes.Length);
             return new Transaction(sender, receiver, amount, signatureBytes, timestamp);
+        }
+
+        public PublicKey ToPublicKey()
+        {
+            var sWriter = new StringWriter();
+            var pemWriter = new PemWriter(sWriter);
+            pemWriter.WriteObject(publicKeyParams);
+            var str = sWriter.ToString();
+            str = str.Replace("-----BEGIN PUBLIC KEY-----", "").Replace("-----END PUBLIC KEY-----", "").Replace("\r\n", "");
+            return new PublicKey(str);
         }
     }
 
@@ -219,7 +231,10 @@ namespace proiect_mds.blockchain
                 throw new InvalidOperationException("Could not sign the transaction.");
             return transaction;
         }
-
+        public PublicWallet ToPublicWallet()
+        {
+            return new PublicWallet(Identifier, privateKey.ToPublicKey());
+        }
         public static Wallet CreateUniqueWallet(Blockchain blockchain, PrivateKey privateKey)
         {
             var random = new SecureRandom();

@@ -1,5 +1,8 @@
 ﻿using proiect_mds.blockchain;
 using proiect_mds.blockchain.impl;
+using proiect_mds.daemon;
+using proiect_mds.daemon.client;
+using proiect_mds.daemon.packets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -46,18 +49,19 @@ namespace proiect_mds.UnitTests
 
             for (int i = 0; i < weights.Length; i++)
             {
-                transactions.Add(new Transaction(
+                // Doesn't matter which key is used as long as everyone believes 
+                // This is the right one.
+                transactions.Add(new PrivateKey(keys[0]).SignTransaction(
                     WalletId.MasterWalletId(),
                     new WalletId(Encoding.UTF8.GetBytes(wIds[i])),
                     100 + weights[i],
-                    null,
-                    new DateTime(19, 4, 2024)
+                    new DateTime(2024, 4, 19)
                 ));
             }
 
             var b1 = new Block(
                     1,
-                    new DateTime(19, 4, 2024),
+                    new DateTime(2024, 4, 19),
                     Hash.FromBlock(Block.GenesisBlock()),
                     WalletId.MasterWalletId(),
                     transactions
@@ -65,25 +69,48 @@ namespace proiect_mds.UnitTests
             memoryBlockIterator.AddBlock(b1);
 
             memoryBlockIterator.AddBlock(
-                new Block(2, new DateTime(20, 4, 2024), 
+                new Block(2, new DateTime(2024, 4, 20), 
                 Hash.FromBlock(b1), WalletId.MasterWalletId(),
                 [
                     new PrivateKey(keys[1]).SignTransaction(
                         new WalletId(Encoding.UTF8.GetBytes(wIds[1])),
                         new WalletId(Encoding.UTF8.GetBytes(wIds[0])),
                         weights[0],
-                        new DateTime(20, 4, 2024)
+                        new DateTime(2024, 4, 20)
                     ),
                     new PrivateKey(keys[2]).SignTransaction(
                         new WalletId(Encoding.UTF8.GetBytes(wIds[2])),
                         new WalletId(Encoding.UTF8.GetBytes(wIds[1])),
                         weights[2],
-                        new DateTime(20, 4, 2024)
+                        new DateTime(2024, 4, 20)
                     )
                 ])
             );
             var blockchain = new Blockchain(memoryBlockIterator, memoryWalletIterator);
             return blockchain;
+        }
+        [TestMethod]
+        public void ClusterConnectivity()
+        {
+            var mockchain = MockChain();
+            Daemon[] daemons = [
+                new Daemon(mockchain, 8001, [
+                    new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8005)
+                ]),
+                new Daemon(mockchain, 8005, [
+                    new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8009)
+                ]),
+                new Daemon(mockchain, 8009)
+            ];
+            for (int i = 0; i < daemons.Length; i++)
+                daemons[i].StartAsync();
+            NodeConnection.AskForPeers(daemons[0].Peers, 8001);
+            NodeConnection.AskForPeers(daemons[0].Peers, 8001);
+            NodeConnection.AskForPeers(daemons[1].Peers, 8009);
+            Console.WriteLine(daemons[2].Peers.Count);
+            //Assert.IsTrue(daemons[2].Peers.Count >= 2);
+            for (int i = 0; i < daemons.Length; i++)
+                daemons[i].Stop();
         }
     }
 }
