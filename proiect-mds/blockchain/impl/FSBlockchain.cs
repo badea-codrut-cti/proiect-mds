@@ -16,8 +16,7 @@ namespace proiect_mds.blockchain.impl
         private static readonly Int64 TRANSACTION_LENGTH = sizeof(ulong) + WalletId.WID_LENGTH * 2 + Transaction.SIGNATURE_LENGTH;
         private static readonly Int64 BLOCK_HEADER_LENGTH = sizeof(ulong) * 2 + Hash.HASH_LENGTH + WalletId.WID_LENGTH;
 
-        private readonly Stream blockStream;
-        private readonly int maxCache;
+        private Stream blockStream;
         private List<Block> writeCache;
         private bool disposed = false;
         private bool endOfStreamReached = false;
@@ -32,7 +31,6 @@ namespace proiect_mds.blockchain.impl
             }
 
             this.blockStream = stream;
-            this.maxCache = maxCache;
             this.writeCache = new List<Block>(maxCache);
 
             var cBlock = ReadBlock();
@@ -91,7 +89,7 @@ namespace proiect_mds.blockchain.impl
         {
             if (!disposed)
             {
-                //WriteCacheToDisk();
+                WriteCacheToStream();
                 blockStream.Dispose();
                 disposed = true;
             }
@@ -112,9 +110,9 @@ namespace proiect_mds.blockchain.impl
         public override bool AddBlock(Block block)
         {
             writeCache.Add(block);
-            if (writeCache.Count > maxCache)
+            if (writeCache.Count >= writeCache.Capacity)
             {
-                //WriteCacheToDisk();
+                WriteCacheToStream();
             }
             return true;
         }
@@ -162,6 +160,14 @@ namespace proiect_mds.blockchain.impl
             {
                 endOfStreamReached = true;
                 return false;
+            }
+        }
+        private void WriteCacheToStream()
+        {
+            writeCache.Sort((a, b) => (int)a.Index - (int)b.Index);
+            foreach (var item in writeCache)
+            {
+                WriteBlockToStream(item);
             }
         }
         private ulong? GetSeekBlockIndex()

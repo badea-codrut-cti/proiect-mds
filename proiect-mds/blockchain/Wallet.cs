@@ -10,6 +10,8 @@ using System.Globalization;
 using Org.BouncyCastle.Crypto.Digests;
 using proiect_mds.blockchain.exception;
 using System.Transactions;
+using proiect_mds.daemon.packets;
+using System.Reflection;
 
 namespace proiect_mds.blockchain
 {
@@ -86,7 +88,7 @@ namespace proiect_mds.blockchain
         public Transaction? SignTransaction(WalletId sender, WalletId receiver, ulong amount, DateTime timestamp)
         {
             string formattedTimestamp = timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
-            byte[] transactionData = Encoding.UTF8.GetBytes($"{sender}{receiver}{amount}{formattedTimestamp}");
+            byte[] transactionData = Encoding.UTF8.GetBytes($"{Encoding.UTF8.GetString(sender.Value)}{Encoding.UTF8.GetString(receiver.Value)}{amount}{formattedTimestamp}");
             var signer = new ECDsaSigner(new HMacDsaKCalculator(new Sha256Digest()));
             signer.Init(true, privateKeyParams);
             BigInteger[] signature = signer.GenerateSignature(transactionData);
@@ -96,6 +98,21 @@ namespace proiect_mds.blockchain
             Buffer.BlockCopy(rBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH / 2 - rBytes.Length, rBytes.Length);
             Buffer.BlockCopy(sBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH - sBytes.Length, sBytes.Length);
             return new Transaction(sender, receiver, amount, signatureBytes, timestamp);
+        }
+
+        public BecomeValidatorPacket? SignValidatorPacket(WalletId wId, uint stake, DateTime timestamp)
+        {
+            string formattedTimestamp = timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
+            byte[] transactionData = Encoding.UTF8.GetBytes($"{Encoding.UTF8.GetString(wId.Value)}{stake}{formattedTimestamp}");
+            var signer = new ECDsaSigner(new HMacDsaKCalculator(new Sha256Digest()));
+            signer.Init(true, privateKeyParams);
+            BigInteger[] signature = signer.GenerateSignature(transactionData);
+            var rBytes = signature[0].ToByteArrayUnsigned();
+            var sBytes = signature[1].ToByteArrayUnsigned();
+            byte[] signatureBytes = new byte[Transaction.SIGNATURE_LENGTH];
+            Buffer.BlockCopy(rBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH / 2 - rBytes.Length, rBytes.Length);
+            Buffer.BlockCopy(sBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH - sBytes.Length, sBytes.Length);
+            return new BecomeValidatorPacket(wId, stake, timestamp, signatureBytes);
         }
 
         public PublicKey ToPublicKey()

@@ -18,14 +18,6 @@ namespace proiect_mds.UnitTests
     [TestClass]
     public class DaemonTests
     {
-        private static string ByteArrayToString(byte[] ba)
-        {
-            StringBuilder hex = new StringBuilder(ba.Length * 2);
-            foreach (byte b in ba)
-                hex.AppendFormat("{0:x2} ", b);
-            return hex.ToString();
-        }
-        
         [TestMethod]
         public async Task ConnectToNode()
         {
@@ -45,7 +37,6 @@ namespace proiect_mds.UnitTests
             daemon.Stop();
         }
 
-        
         [TestMethod]
         public async Task BroadcastTransaction()
         {

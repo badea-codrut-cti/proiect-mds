@@ -1,4 +1,5 @@
 ﻿using proiect_mds.blockchain;
+using proiect_mds.daemon.client;
 using proiect_mds.daemon.packets;
 using ProtoBuf;
 using System;
@@ -15,13 +16,13 @@ namespace proiect_mds.daemon
     internal class Daemon
     {
         public static uint VERSION = 1;
-        public int Port { get; private set; }
+        public uint Port { get; private set; }
         public Blockchain Blockchain { get; private set; }
         public List<Validator> Validators { get; private set; } = [];
         public List<Transaction> TransactionsQueued { get; private set; } = [];
         private bool isStarted = true;
         public List<NodeAddressInfo> Peers { get; private set; }
-        public Daemon(Blockchain blockchain, int port = 9005, List<NodeAddressInfo>? peers = null)
+        public Daemon(Blockchain blockchain, uint port = 9005, List<NodeAddressInfo>? peers = null)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(port);
             Port = port;
@@ -33,7 +34,7 @@ namespace proiect_mds.daemon
         }
         public async Task StartAsync()
         {
-            using var listener = new TcpListener(IPAddress.Any, Port);
+            using var listener = new TcpListener(IPAddress.Any, (int)Port);
             listener.Start();
 
             HandleTimedValdidation();
@@ -42,28 +43,34 @@ namespace proiect_mds.daemon
             {
                 var client = await listener.AcceptTcpClientAsync();
                 _ = Task.Run(async () => await HandleResponse(client));
+                Thread.Sleep(1);
             }
         }
-        public void HandleTimedValdidation()
+        private void HandleTimedValdidation()
         {
             _ = Task.Run(() =>
             {
                 while (isStarted)
                 {
-                    var dateNow = DateTime.Now;
-                    if (dateNow.Second == 30 && TransactionsQueued.Count >= ValidatorSelector.MIN_TRANSACTIONS)
-                    {
-                        var lastBlock = Blockchain.GetLatestBlock();
-                        var tempBlock = new Block(lastBlock.Index + 1, DateTime.Now, Hash.FromBlock(lastBlock), WalletId.MasterWalletId(), TransactionsQueued);
-                        var validatorSelector = new ValidatorSelector(Validators, tempBlock);
-                        var selected = validatorSelector.GetPickedValidator();
-                        Validators.Clear();
-                        TransactionsQueued.Clear();
-                        Blockchain.AddBlock(new Block(tempBlock.Index, dateNow, tempBlock.PreviousHash, selected.WalletId, tempBlock.Transactions));
-                    }
+                    BlockBirth();
                     Thread.Sleep(1000);
                 }
             });
+        }
+
+        public void BlockBirth(bool forced=false)
+        {
+            var dateNow = DateTime.Now;
+            if ((dateNow.Second == 30 && TransactionsQueued.Count >= ValidatorSelector.MIN_TRANSACTIONS) || forced)
+            {
+                var lastBlock = Blockchain.GetLatestBlock();
+                var tempBlock = new Block(lastBlock.Index + 1, DateTime.Now, Hash.FromBlock(lastBlock), WalletId.MasterWalletId(), TransactionsQueued);
+                var validatorSelector = new ValidatorSelector(Validators, tempBlock);
+                var selected = validatorSelector.GetPickedValidator();
+                Validators.Clear();
+                TransactionsQueued.Clear();
+                Blockchain.AddBlock(new Block(tempBlock.Index, dateNow, tempBlock.PreviousHash, selected.WalletId, tempBlock.Transactions));
+            }
         }
 
         public void Stop()
@@ -114,7 +121,8 @@ namespace proiect_mds.daemon
             if (ip != null)
             {
                 var newPeer = new NodeAddressInfo(BitConverter.ToUInt32(ip.Address.GetAddressBytes()), helloPacket.Port);
-                Peers.Add(newPeer);
+                if (!Peers.Exists(el => el.IPv4 == newPeer.IPv4 && el.Port == newPeer.Port))
+                    Peers.Add(newPeer);
             }
         }
         private void HandleSyncChain(NetworkStream networkStream)
@@ -147,7 +155,7 @@ namespace proiect_mds.daemon
             if (nextBlock == null)
             {
                 var response = new SyncChainResponse(SyncChainResponseType.BlockNotFound, null);
-                Serializer.SerializeWithLengthPrefix<SyncChainResponse>(networkStream, response, PrefixStyle.Fixed32);
+                Serializer.SerializeWithLengthPrefix(networkStream, response, PrefixStyle.Fixed32);
                 return;
             }
 
@@ -232,6 +240,10 @@ namespace proiect_mds.daemon
             if (pubWallet == null)
                 return;
             Blockchain.RegisterWallet(pubWallet);
+        }
+        public void FetchPeers()
+        {
+            Peers = NodeConnection.AskForPeers(Peers, Port);
         }
         public static T? DecodeMessage<T>(Stream stream) where T : class
         {

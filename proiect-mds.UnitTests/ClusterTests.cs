@@ -89,6 +89,7 @@ namespace proiect_mds.UnitTests
             var blockchain = new Blockchain(memoryBlockIterator, memoryWalletIterator);
             return blockchain;
         }
+
         [TestMethod]
         public void ClusterConnectivity()
         {
@@ -104,12 +105,58 @@ namespace proiect_mds.UnitTests
             ];
             for (int i = 0; i < daemons.Length; i++)
                 daemons[i].StartAsync();
-            NodeConnection.AskForPeers(daemons[0].Peers, 8001);
-            NodeConnection.AskForPeers(daemons[0].Peers, 8001);
-            NodeConnection.AskForPeers(daemons[1].Peers, 8009);
-            Console.WriteLine(daemons[2].Peers.Count);
-            //Assert.IsTrue(daemons[2].Peers.Count >= 2);
+
+            daemons[0].FetchPeers();
+            daemons[0].FetchPeers();
+            daemons[1].FetchPeers();
+            Assert.IsTrue(daemons[2].Peers.Count == 2);
+
             for (int i = 0; i < daemons.Length; i++)
+                daemons[i].Stop();
+        }
+        
+        [TestMethod]
+        public void NewBlockValidated()
+        {
+            var mockchain = MockChain();
+            Daemon[] daemons = [
+                new Daemon(mockchain, 8001, [
+                    new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8005)
+                ]),
+                new Daemon(mockchain, 8005, [
+                    new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8009)
+                ]),
+                new Daemon(mockchain, 8009)
+            ];
+            for (int i = 0; i < daemons.Length; i++)
+                daemons[i].StartAsync();
+
+            
+
+            NodeConnection.BroadcastTransaction(daemons[0].Peers, daemons[0].Port, 
+            new PrivateKey(keys[0]).SignTransaction(new WalletId(Encoding.UTF8.GetBytes(wIds[0])), 
+            new WalletId(Encoding.UTF8.GetBytes(wIds[1])), 10, new DateTime(2024, 4, 20, 19, 27, 35)));
+            
+            NodeConnection.BroadcastTransaction(daemons[0].Peers, daemons[0].Port,
+            new PrivateKey(keys[0]).SignTransaction(new WalletId(Encoding.UTF8.GetBytes(wIds[0])),
+            new WalletId(Encoding.UTF8.GetBytes(wIds[2])), 10, new DateTime(2024, 4, 20, 19, 27, 40)));
+
+            NodeConnection.BroadcastTransaction(daemons[1].Peers, daemons[1].Port,
+            new PrivateKey(keys[1]).SignTransaction(new WalletId(Encoding.UTF8.GetBytes(wIds[1])),
+            new WalletId(Encoding.UTF8.GetBytes(wIds[2])), 10, new DateTime(2024, 4, 20, 19, 27, 42)));
+
+            for (int i=0; i<3; i++)
+            {
+                NodeConnection.BecomeValidator(daemons[i].Peers, daemons[i].Port,
+                new PrivateKey(keys[i]).SignValidatorPacket(new WalletId(Encoding.UTF8.GetBytes(wIds[i])), 10, new DateTime(2024, 4, 20, 19, 27, 45 + i)));
+            }
+
+            for (int i = 0; i < daemons.Length; i++)
+                daemons[i].BlockBirth(true);
+            
+            Assert.IsNotNull(daemons[0].Blockchain.GetBlock(2));
+
+           for (int i = 0; i < daemons.Length; i++)
                 daemons[i].Stop();
         }
     }
