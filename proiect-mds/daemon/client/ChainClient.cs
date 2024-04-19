@@ -1,4 +1,5 @@
-﻿using proiect_mds.blockchain;
+﻿using Org.BouncyCastle.Ocsp;
+using proiect_mds.blockchain;
 using proiect_mds.blockchain.exception;
 using proiect_mds.daemon.packets;
 using ProtoBuf;
@@ -95,6 +96,17 @@ namespace proiect_mds.daemon.client
                 con.client.Close();
             }
             return ret;
+        }
+        public static void AnnounceNewWallet(List<NodeAddressInfo> peers, uint daemonPort, PublicWallet wallet)
+        {
+            foreach (var peer in peers)
+            {
+                var con = new NodeConnection(peer, daemonPort, RequestType.CreateWallet);
+                var stream = con.client.GetStream();
+                Serializer.SerializeWithLengthPrefix(stream, wallet, PrefixStyle.Fixed32);
+                var resp = Daemon.DecodeMessage<WalletAnnouncementResponse>(stream);
+                con.client.Close();
+            }
         }
     }
 }

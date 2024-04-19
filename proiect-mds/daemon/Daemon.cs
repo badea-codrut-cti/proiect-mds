@@ -21,11 +21,14 @@ namespace proiect_mds.daemon
         public List<Transaction> TransactionsQueued { get; private set; } = [];
         private bool isStarted = true;
         public List<NodeAddressInfo> Peers { get; private set; }
-        public Daemon(Blockchain blockchain, int port = 9005)
+        public Daemon(Blockchain blockchain, int port = 9005, List<NodeAddressInfo>? peers = null)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(port);
             Port = port;
-            Peers = [];
+            if (peers != null)
+                Peers = peers;
+            else
+                Peers = [];
             this.blockchain = blockchain;
         }
         public async Task StartAsync()
@@ -79,12 +82,6 @@ namespace proiect_mds.daemon
                 client.Close();
                 return;
             }
-            var ip = (IPEndPoint?)client.Client.RemoteEndPoint;
-            if (ip != null)
-            {
-                var newPeer = new NodeAddressInfo(BitConverter.ToUInt32(ip.Address.GetAddressBytes()), helloPacket.Port);
-                Peers.Add(newPeer);
-            } 
             switch (helloPacket.RequestType)
             {
                 case RequestType.SyncBlockchain:
@@ -107,6 +104,17 @@ namespace proiect_mds.daemon
                         AcceptValidator(networkStream);
                         break;
                     }
+                case RequestType.CreateWallet:
+                    {
+                        GetNewWallet(networkStream);
+                        break;
+                    }
+            }
+            var ip = (IPEndPoint?)client.Client.RemoteEndPoint;
+            if (ip != null)
+            {
+                var newPeer = new NodeAddressInfo(BitConverter.ToUInt32(ip.Address.GetAddressBytes()), helloPacket.Port);
+                Peers.Add(newPeer);
             }
         }
         private void HandleSyncChain(NetworkStream networkStream)
@@ -177,7 +185,7 @@ namespace proiect_mds.daemon
                 return;
             if (TransactionsQueued.Exists(tr => tr == trans))
             {
-                var aReceived = new BroadcastTransactionResponse(BroadcastTransactionResponseCode.AlreadyReceived);
+                var aReceived = new BroadcastTransactionResponse(BroadcastTransactionResponseCode.Okay);
                 Serializer.SerializeWithLengthPrefix(networkStream, aReceived, PrefixStyle.Fixed32);
                 return;
             }
@@ -217,6 +225,13 @@ namespace proiect_mds.daemon
             var peerPacket = new NodeAdvertiseResponse(Peers);
             Serializer.SerializeWithLengthPrefix(networkStream, peerPacket, PrefixStyle.Fixed32);
             return;
+        }
+        private void GetNewWallet(NetworkStream networkStream)
+        {
+            var pubWallet = DecodeMessage<PublicWallet>(networkStream);
+            if (pubWallet == null)
+                return;
+            blockchain.RegisterWallet(pubWallet);
         }
         public static T? DecodeMessage<T>(Stream stream) where T : class
         {

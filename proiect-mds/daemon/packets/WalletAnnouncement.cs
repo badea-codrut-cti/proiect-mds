@@ -10,25 +10,25 @@ namespace proiect_mds.daemon.packets
 {
     [DataContract]
     [ProtoContract]
-    public enum BroadcastTransactionResponseCode
+    public enum WalletAnnouncementResponseType
     {
         [EnumMember]
         [ProtoEnum]
         Okay = 1,
         [EnumMember]
         [ProtoEnum]
-        InvalidTransaction = 2
+        KeyMismatch = 2
     }
-
     [ProtoContract]
-    internal class BroadcastTransactionResponse
+    internal class WalletAnnouncementResponse
     {
         [ProtoMember(1)]
-        public BroadcastTransactionResponseCode Code { get; private set; }
-        public BroadcastTransactionResponse(BroadcastTransactionResponseCode code)
+        public WalletAnnouncementResponseType responseType { get; private set; }
+        public WalletAnnouncementResponse(WalletAnnouncementResponseType responseType)
         {
-            Code = code;
+            this.responseType = responseType;
         }
-        public BroadcastTransactionResponse() { }
+
+        public WalletAnnouncementResponse() { }
     }
 }

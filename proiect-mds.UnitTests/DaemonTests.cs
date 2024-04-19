@@ -7,9 +7,11 @@ using ProtoBuf;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace proiect_mds.UnitTests
 {
@@ -63,6 +65,57 @@ namespace proiect_mds.UnitTests
             daemon.StartAsync();
 
             NodeConnection.BroadcastTransaction([nodeInfo], 9091, transaction);
+            Assert.IsTrue(daemon.TransactionsQueued.Count == 1);
+
+            daemon.Stop();
+        }
+
+        private static List<NodeAddressInfo> GeneratePeers(int count)
+        {
+            var peers = new List<NodeAddressInfo>(count);
+            while (count > 0)
+            {
+                byte[] ipBytes = new byte[4];
+                new Random().NextBytes(ipBytes);
+                uint ip = BitConverter.ToUInt32(ipBytes.Reverse().ToArray(), 0);
+                uint port = (uint)new Random().Next(1024, 65536);
+                peers.Add(new NodeAddressInfo(ip, port));
+                count--;
+            }
+            return peers;
+        }
+
+        [TestMethod]
+        public async Task FetchPeerList()
+        {
+            var nodeInfo = new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 9005);
+            var nodeCount = 10;
+            var memoryBlockIterator = new MemoryBlockIterator();
+            var memoryWalletIterator = new MemoryWalletIterator();
+            var blockchain = new Blockchain(memoryBlockIterator, memoryWalletIterator);
+            var daemon = new Daemon(blockchain, 9005, GeneratePeers(nodeCount));
+
+            daemon.StartAsync();
+
+            var peers = NodeConnection.AskForPeers([nodeInfo], 9091);
+            Assert.IsNotNull(peers);
+            Assert.IsTrue(peers.Count == nodeCount);
+            daemon.Stop();
+        }
+
+        [TestMethod]
+        public async Task WalletCreation()
+        {
+            var nodeInfo = new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 9005);
+            var memoryBlockIterator = new MemoryBlockIterator();
+            var memoryWalletIterator = new MemoryWalletIterator();
+            var blockchain = new Blockchain(memoryBlockIterator, memoryWalletIterator);
+            var daemon = new Daemon(blockchain, 9005);
+            daemon.StartAsync();
+
+            var wallet = Wallet.CreateUniqueWallet(blockchain, new PrivateKey(ClusterTests.keys[0]));
+
+            NodeConnection.AnnounceNewWallet([nodeInfo])
             Assert.IsTrue(daemon.TransactionsQueued.Count == 1);
 
             daemon.Stop();

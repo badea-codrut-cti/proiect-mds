@@ -37,9 +37,7 @@ namespace proiect_mds.blockchain
         {
             this.blockIterator = blockIterator;
             this.walletIterator = walletIterator;
-            AddBlock(Block.GenesisBlock());
         }
-
         public UInt64? GetWalletBalance(WalletId walletId)
         {
             UInt64 received = 0;
@@ -70,7 +68,6 @@ namespace proiect_mds.blockchain
 
             return received - sent;
         }
-
         public bool AddBlock(Block block)
         {
             if (IsGenesisBlock(block))
@@ -84,7 +81,6 @@ namespace proiect_mds.blockchain
 
             return blockIterator.AddBlock(previousBlock);
         }
-
         public PublicKey? GetKeyFromWalletId(WalletId walletId)
         {
             while (walletIterator.MoveNext())
@@ -95,7 +91,6 @@ namespace proiect_mds.blockchain
 
             return null;
         }
-
         public Block GetLatestBlock()
         {
             blockIterator.Reset();
@@ -108,7 +103,6 @@ namespace proiect_mds.blockchain
             }
             return ret;
         }
-
         public Block? GetBlock(UInt64 index)
         {
             blockIterator.Reset();
@@ -121,7 +115,12 @@ namespace proiect_mds.blockchain
             } while (blockIterator.MoveNext());
             return null;
         }
-
+        public bool RegisterWallet(PublicWallet wallet)
+        {
+            if (GetKeyFromWalletId(wallet.Identifier) != null)
+                return false;
+            return walletIterator.AddWallet(wallet);
+        }
         public static bool IsGenesisBlock(Block block)
         {
             return block.Index == 0;
