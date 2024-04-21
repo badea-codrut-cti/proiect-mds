@@ -202,7 +202,7 @@ namespace proiect_mds.blockchain.impl
             {
                 blockStream.Write(block.PreviousHash.Value);
             }
-            blockStream.Write(block.ValidatorId.Value);
+            blockStream.Write(Encoding.UTF8.GetBytes(block.ValidatorId.Value));
             blockStream.Write(BitConverter.GetBytes(block.Transactions.Count).Reverse().ToArray());
             return true;
         }

@@ -82,7 +82,7 @@ namespace proiect_mds.blockchain.impl
         private bool WriteWallet(PublicWallet pWallet)
         {
             MakeRoomForKeychain();
-            stream.Write(pWallet.Identifier.Value);
+            stream.Write(Encoding.UTF8.GetBytes(pWallet.Identifier.Value));
             stream.Write(Encoding.UTF8.GetBytes(pWallet.PublicKey.PemString));
             return true;
         }

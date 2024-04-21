@@ -73,14 +73,14 @@ namespace proiect_mds.UnitTests
                 Hash.FromBlock(b1), WalletId.MasterWalletId(),
                 [
                     new PrivateKey(keys[1]).SignTransaction(
-                        new WalletId(Encoding.UTF8.GetBytes(wIds[1])),
-                        new WalletId(Encoding.UTF8.GetBytes(wIds[0])),
+                        new WalletId(wIds[1]),
+                        new WalletId(wIds[0]),
                         weights[0],
                         new DateTime(2024, 4, 20)
                     ),
                     new PrivateKey(keys[2]).SignTransaction(
-                        new WalletId(Encoding.UTF8.GetBytes(wIds[2])),
-                        new WalletId(Encoding.UTF8.GetBytes(wIds[1])),
+                        new WalletId(wIds[2]),
+                        new WalletId(wIds[1]),
                         weights[2],
                         new DateTime(2024, 4, 20)
                     )
@@ -120,41 +120,41 @@ namespace proiect_mds.UnitTests
         {
             var mockchain = MockChain();
             Daemon[] daemons = [
-                new Daemon(mockchain, 8001, [
-                    new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8005)
-                ]),
-                new Daemon(mockchain, 8005, [
-                    new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8009)
-                ]),
+                new Daemon(mockchain, 8001),
+                new Daemon(mockchain, 8005),
                 new Daemon(mockchain, 8009)
             ];
             for (int i = 0; i < daemons.Length; i++)
                 daemons[i].StartAsync();
 
-            
+            List< NodeAddressInfo> peers = [
+                new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8001),
+                new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8005),
+                new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8009)
+                ];
 
-            NodeConnection.BroadcastTransaction(daemons[0].Peers, daemons[0].Port, 
+            NodeConnection.BroadcastTransaction(peers, daemons[0].Port, 
             new PrivateKey(keys[0]).SignTransaction(new WalletId(Encoding.UTF8.GetBytes(wIds[0])), 
-            new WalletId(Encoding.UTF8.GetBytes(wIds[1])), 10, new DateTime(2024, 4, 20, 19, 27, 35)));
+            new WalletId(wIds[1]), 10, new DateTime(2024, 4, 20, 19, 27, 35)));
             
-            NodeConnection.BroadcastTransaction(daemons[0].Peers, daemons[0].Port,
+            NodeConnection.BroadcastTransaction(peers, daemons[0].Port,
             new PrivateKey(keys[0]).SignTransaction(new WalletId(Encoding.UTF8.GetBytes(wIds[0])),
-            new WalletId(Encoding.UTF8.GetBytes(wIds[2])), 10, new DateTime(2024, 4, 20, 19, 27, 40)));
+            new WalletId(wIds[2]), 10, new DateTime(2024, 4, 20, 19, 27, 40)));
 
-            NodeConnection.BroadcastTransaction(daemons[1].Peers, daemons[1].Port,
+            NodeConnection.BroadcastTransaction(peers, daemons[1].Port,
             new PrivateKey(keys[1]).SignTransaction(new WalletId(Encoding.UTF8.GetBytes(wIds[1])),
-            new WalletId(Encoding.UTF8.GetBytes(wIds[2])), 10, new DateTime(2024, 4, 20, 19, 27, 42)));
+            new WalletId(wIds[2]), 10, new DateTime(2024, 4, 20, 19, 27, 42)));
 
-            for (int i=0; i<3; i++)
+            for (int i=0; i<peers.Count; i++)
             {
-                NodeConnection.BecomeValidator(daemons[i].Peers, daemons[i].Port,
-                new PrivateKey(keys[i]).SignValidatorPacket(new WalletId(Encoding.UTF8.GetBytes(wIds[i])), 10, new DateTime(2024, 4, 20, 19, 27, 45 + i)));
+                NodeConnection.BecomeValidator(peers, daemons[i].Port,
+                new PrivateKey(keys[i]).SignValidatorPacket(new WalletId(wIds[i]), 10, new DateTime(2024, 4, 20, 19, 27, 45 + i)));
             }
 
             for (int i = 0; i < daemons.Length; i++)
                 daemons[i].BlockBirth(true);
-            
-            Assert.IsNotNull(daemons[0].Blockchain.GetBlock(2));
+
+            Assert.IsTrue(daemons[1].Blockchain.GetLatestBlock().Index == 3);
 
            for (int i = 0; i < daemons.Length; i++)
                 daemons[i].Stop();

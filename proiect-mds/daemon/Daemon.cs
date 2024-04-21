@@ -67,9 +67,9 @@ namespace proiect_mds.daemon
                 var tempBlock = new Block(lastBlock.Index + 1, DateTime.Now, Hash.FromBlock(lastBlock), WalletId.MasterWalletId(), TransactionsQueued);
                 var validatorSelector = new ValidatorSelector(Validators, tempBlock);
                 var selected = validatorSelector.GetPickedValidator();
+                Blockchain.AddBlock(new Block(tempBlock.Index, dateNow, tempBlock.PreviousHash, selected.WalletId, tempBlock.Transactions));
                 Validators.Clear();
                 TransactionsQueued.Clear();
-                Blockchain.AddBlock(new Block(tempBlock.Index, dateNow, tempBlock.PreviousHash, selected.WalletId, tempBlock.Transactions));
             }
         }
 

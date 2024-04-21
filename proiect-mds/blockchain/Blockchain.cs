@@ -113,12 +113,10 @@ namespace proiect_mds.blockchain
         public Block? GetBlock(UInt64 index)
         {
             blockIterator.Reset();
-            Block block = blockIterator.Current;
             do
             {
-                if (block.Index == index)
-                    return block;
-                block = blockIterator.Current;
+                if (blockIterator.Current.Index == index)
+                    return blockIterator.Current; 
             } while (blockIterator.MoveNext());
             return null;
         }
