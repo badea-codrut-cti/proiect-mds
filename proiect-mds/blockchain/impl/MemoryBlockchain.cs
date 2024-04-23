@@ -39,7 +39,6 @@ namespace proiect_mds.blockchain.impl
         public override bool AddBlock(Block block)
         {
             Blocks.Add(block);
-            Console.WriteLine(block.Index);
             return true;
         }
     }

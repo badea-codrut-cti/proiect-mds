@@ -29,7 +29,7 @@ namespace proiect_mds.UnitTests
             "123456789ABCDEFG",
             "23456789ABCDEFGH"
             ];
-        private static Blockchain MockChain()
+        private Blockchain MockChain()
         {
             var memoryWalletIterator = new MemoryWalletIterator();
             var memoryBlockIterator = new MemoryBlockIterator();
@@ -93,15 +93,14 @@ namespace proiect_mds.UnitTests
         [TestMethod]
         public void ClusterConnectivity()
         {
-            var mockchain = MockChain();
             Daemon[] daemons = [
-                new Daemon(mockchain, 8001, [
+                new Daemon(MockChain(), 8001, [
                     new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8005)
                 ]),
-                new Daemon(mockchain, 8005, [
+                new Daemon(MockChain(), 8005, [
                     new NodeAddressInfo(BitConverter.ToUInt32([127, 0, 0, 1]), 8009)
                 ]),
-                new Daemon(mockchain, 8009)
+                new Daemon(MockChain(), 8009)
             ];
             for (int i = 0; i < daemons.Length; i++)
                 daemons[i].StartAsync();
@@ -118,11 +117,10 @@ namespace proiect_mds.UnitTests
         [TestMethod]
         public void NewBlockValidated()
         {
-            var mockchain = MockChain();
             Daemon[] daemons = [
-                new Daemon(mockchain, 8001),
-                new Daemon(mockchain, 8005),
-                new Daemon(mockchain, 8009)
+                new Daemon(MockChain(), 8001),
+                new Daemon(MockChain(), 8005),
+                new Daemon(MockChain(), 8009)
             ];
             for (int i = 0; i < daemons.Length; i++)
                 daemons[i].StartAsync();

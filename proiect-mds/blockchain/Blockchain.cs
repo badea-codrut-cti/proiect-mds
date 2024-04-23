@@ -74,12 +74,10 @@ namespace proiect_mds.blockchain
             {
                 return blockIterator.AddBlock(block);
             }
-
             var previousBlock = GetBlock(block.Index - 1);
-            if (previousBlock == null || Hash.FromBlock(previousBlock) != block.PreviousHash)
+            if (previousBlock == null || Hash.FromBlock(previousBlock).ToString() != block.PreviousHash.ToString())
                 return false;
-
-            return blockIterator.AddBlock(previousBlock);
+            return blockIterator.AddBlock(block);
         }
         public PublicKey? GetKeyFromWalletId(WalletId walletId)
         {
@@ -128,7 +126,7 @@ namespace proiect_mds.blockchain
         }
         public static bool IsGenesisBlock(Block block)
         {
-            return block.Index == 0;
+            return block.Index == 0; 
         }
     }
 }
