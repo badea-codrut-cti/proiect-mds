@@ -7,31 +7,84 @@ using System.Threading.Tasks;
 
 namespace proiect_mds.blockchain.impl
 {
-    /*internal class FSKeychain : WalletIterator
+    internal class FSKeychain : WalletIterator
     {
-        public FSKeychain(Stream stream, int maxCache)
+        private List<PublicWallet> writecache;
+        private Stream stream;
+        private PublicWallet? currentWallet;
+        public FSKeychain(Stream stream, int maxCache = 100)
         {
-        
+            writecache = new List<PublicWallet>(maxCache);
+            this.stream = stream;
+            currentWallet = ReadKeychain();
         }
-        protected override PublicWallet? ReadFromStream()
+        public override PublicWallet Current { 
+            get {
+                if (currentWallet == null)
+                {
+                    throw new InvalidOperationException("No current wallet keychain.");
+                }
+                return currentWallet;
+            }
+        }
+        public override bool AddWallet(PublicWallet pWallet)
+        {
+            writecache.Add(pWallet);
+            if (writecache.Count >= writecache.Capacity)
+            {
+                WriteCacheToStream();
+            }
+            return true;
+        }
+
+        public override void Dispose()
+        {
+            WriteCacheToStream();
+        }
+        public override bool MoveNext()
+        {
+            currentWallet = ReadKeychain();
+            return currentWallet != null;
+        }
+        public override void Reset()
+        {
+            WriteCacheToStream();
+            stream.Seek(0, SeekOrigin.Begin);
+        }
+        private PublicWallet? ReadKeychain()
         {
             try
             {
-                using var reader = new BinaryReader(objectStream);
-                var walletId = reader.ReadBytes(WalletId.WID_LENGTH);
-                string parsedKey = Encoding.UTF8.GetString(reader.ReadBytes(PublicKey.PUBLIC_KEY_LENGTH));
-                return new PublicWallet(new WalletId(walletId), new PublicKey(parsedKey));
-            }
-            catch (IOException)
+                BinaryReader reader = new BinaryReader(stream);
+                var wallet = new WalletId(reader.ReadBytes(WalletId.WID_LENGTH));
+                var publicKey = new PublicKey(Encoding.UTF8.GetString(reader.ReadBytes(PublicKey.PUBLIC_KEY_LENGTH)));
+                return new PublicWallet(wallet, publicKey);
+            } catch(IOException)
             {
                 return null;
             }
         }
-        protected override bool WriteToStream(PublicWallet obj)
+        private bool MakeRoomForKeychain()
         {
-            objectStream.Write(obj.Identifier.ToBytes());
-            //objectStream.Write(obj.PublicKey.);
+            long currentLength = stream.Length;
+            long offset = currentLength + WalletId.WID_LENGTH + PublicKey.PUBLIC_KEY_LENGTH;
+            stream.Seek(0, SeekOrigin.End);
+            stream.SetLength(offset);
             return true;
         }
-    }*/
+        private void WriteCacheToStream()
+        {
+            foreach (var item in writecache)
+            {
+                WriteWallet(item);
+            }
+        }
+        private bool WriteWallet(PublicWallet pWallet)
+        {
+            MakeRoomForKeychain();
+            stream.Write(Encoding.UTF8.GetBytes(pWallet.Identifier.Value));
+            stream.Write(Encoding.UTF8.GetBytes(pWallet.PublicKey.PemString));
+            return true;
+        }
+    }
 }

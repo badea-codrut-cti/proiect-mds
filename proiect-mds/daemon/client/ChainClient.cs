@@ -1,4 +1,5 @@
-﻿using proiect_mds.blockchain;
+﻿using Org.BouncyCastle.Ocsp;
+using proiect_mds.blockchain;
 using proiect_mds.blockchain.exception;
 using proiect_mds.daemon.packets;
 using ProtoBuf;
@@ -87,14 +88,38 @@ namespace proiect_mds.daemon.client
             foreach (var peer in peers)
             {
                 var con = new NodeConnection(peer, daemonPort, RequestType.AskForPeers);
+                var ip = (IPEndPoint?)con.client.Client.RemoteEndPoint;
                 var stream = con.client.GetStream();
                 var resp = Daemon.DecodeMessage<NodeAdvertiseResponse>(stream);
-                if (resp == null)
+                if (resp == null || resp.Nodes == null)
                     continue;
-                ret = ret.Concat(resp.Nodes).ToList();
+
+                ret = ret.Concat(resp.Nodes).Where(el => el.IPv4 != BitConverter.ToUInt32(ip.Address.GetAddressBytes()) && el.Port != daemonPort).ToList();
                 con.client.Close();
             }
             return ret;
+        }
+        public static void AnnounceNewWallet(List<NodeAddressInfo> peers, uint daemonPort, PublicWallet wallet)
+        {
+            foreach (var peer in peers)
+            {
+                var con = new NodeConnection(peer, daemonPort, RequestType.CreateWallet);
+                var stream = con.client.GetStream();
+                Serializer.SerializeWithLengthPrefix(stream, wallet, PrefixStyle.Fixed32);
+                var resp = Daemon.DecodeMessage<WalletAnnouncementResponse>(stream);
+                con.client.Close();
+            }
+        }
+        public static void BecomeValidator(List<NodeAddressInfo> peers, uint daemonPort, BecomeValidatorPacket packet)
+        {
+            foreach (var peer in peers)
+            {
+                var con = new NodeConnection(peer, daemonPort, RequestType.BecomeValidator);
+                var stream = con.client.GetStream();
+                Serializer.SerializeWithLengthPrefix(stream, packet, PrefixStyle.Fixed32);
+                var resp = Daemon.DecodeMessage<ValidatorResponsePacket>(stream);
+                con.client.Close();
+            }
         }
     }
 }

@@ -43,6 +43,7 @@ enum HelloRequestType {
 	SYNC_BLOCKCHAIN = 2;
 	BROADCAST_TRANSACTION = 3;
 	BECOME_VALIDATOR = 4;
+	CREATE_WALLET = 5;
 }
 
 message BCHello {
@@ -94,7 +95,6 @@ message BCSyncChainResponse {
 enum BCBroadcastTransactionResponseCode {
 	OKAY = 1;
 	INVALID_TRANSACTION = 2;
-	ALREADY_RECEIVED = 3;
 }
 
 message BCBecomeValidator {
@@ -113,4 +113,13 @@ enum BCValidatorResponseType {
 
 message BCValidatorResponsePacket {
 	BCValidatorResponseType response_type = 1;
+}
+
+enum BCWalletAnnouncementResponseType {
+	ACCEPTED = 1;
+	KEY_MISMATCH = 2;
+}
+
+message BCWalletAnnouncementResponse {
+	BCWalletAnnouncementResponseType response_type = 1;
 }

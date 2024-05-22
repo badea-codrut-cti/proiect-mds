@@ -10,6 +10,8 @@ using System.Globalization;
 using Org.BouncyCastle.Crypto.Digests;
 using proiect_mds.blockchain.exception;
 using System.Transactions;
+using proiect_mds.daemon.packets;
+using System.Reflection;
 
 namespace proiect_mds.blockchain
 {
@@ -19,11 +21,16 @@ namespace proiect_mds.blockchain
         public static string WID_PREFIX = "+codrea";
         public static UInt16 WID_LENGTH = 16;
         [ProtoMember(1)]
-        private readonly byte[] value = new byte[WID_LENGTH];
+        public string Value { get; private set; }
 
-        public byte[] Value
+        public WalletId(string data)
         {
-            get { return value; }
+            if (data.Length != WID_LENGTH)
+            {
+                throw new ArgumentException($"Invalid data length: {data.Length}. Expected {WID_LENGTH} bytes.");
+            }
+
+            Value = data;
         }
         public WalletId(byte[] data)
         {
@@ -32,34 +39,31 @@ namespace proiect_mds.blockchain
                 throw new ArgumentException($"Invalid data length: {data.Length}. Expected {WID_LENGTH} bytes.");
             }
 
-            this.value = data;
+            Value = Encoding.ASCII.GetString(data);
         }
         public WalletId() { }
         public override string ToString()
         {
-            return WID_PREFIX + Convert.ToHexString(value);
-        }
-        public byte[] ToBytes()
-        {
-            return value;
+            return WID_PREFIX + Value;
         }
         public static WalletId MasterWalletId()
         {
-            var walletId = new byte[WID_LENGTH];
-            for (int i = 0; i < WID_LENGTH; i++)
-            {
-                if (i != WID_LENGTH - 1)
-                    walletId[i] = 0;
-                else
-                    walletId[i] = 1;
-            }
-            return new WalletId(walletId);
+            return new WalletId("0000000000000001");
+        }
+        public static bool operator ==(WalletId a, WalletId b)
+        {
+            return a.Value == b.Value;
+        }
+        public static bool operator !=(WalletId a, WalletId b)
+        {
+            return !(a == b);
         }
     }
 
     internal class PrivateKey
     {
         private readonly ECPrivateKeyParameters privateKeyParams;
+        private readonly ECPublicKeyParameters publicKeyParams;
         public static int PRIVATE_KEY_LENGTH = 160;
 
         public PrivateKey(string PemString)
@@ -76,6 +80,7 @@ namespace proiect_mds.blockchain
                 ));
                 AsymmetricCipherKeyPair keyPair = (AsymmetricCipherKeyPair)rdr.ReadObject();
                 privateKeyParams = (ECPrivateKeyParameters)keyPair.Private;
+                publicKeyParams = (ECPublicKeyParameters)keyPair.Public;
             } catch(FormatException) {
                 throw new PrivateKeyException("Improperly formatted private key.");
             }
@@ -84,7 +89,7 @@ namespace proiect_mds.blockchain
         public Transaction? SignTransaction(WalletId sender, WalletId receiver, ulong amount, DateTime timestamp)
         {
             string formattedTimestamp = timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
-            byte[] transactionData = Encoding.UTF8.GetBytes($"{sender}{receiver}{amount}{formattedTimestamp}");
+            byte[] transactionData = Encoding.UTF8.GetBytes($"{sender.Value}{receiver.Value}{amount}{formattedTimestamp}");
             var signer = new ECDsaSigner(new HMacDsaKCalculator(new Sha256Digest()));
             signer.Init(true, privateKeyParams);
             BigInteger[] signature = signer.GenerateSignature(transactionData);
@@ -94,6 +99,31 @@ namespace proiect_mds.blockchain
             Buffer.BlockCopy(rBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH / 2 - rBytes.Length, rBytes.Length);
             Buffer.BlockCopy(sBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH - sBytes.Length, sBytes.Length);
             return new Transaction(sender, receiver, amount, signatureBytes, timestamp);
+        }
+
+        public BecomeValidatorPacket? SignValidatorPacket(WalletId wId, uint stake, DateTime timestamp)
+        {
+            string formattedTimestamp = timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
+            byte[] electData = Encoding.UTF8.GetBytes($"{wId.Value}{stake}{formattedTimestamp}");
+            var signer = new ECDsaSigner(new HMacDsaKCalculator(new Sha256Digest()));
+            signer.Init(true, privateKeyParams);
+            BigInteger[] signature = signer.GenerateSignature(electData);
+            var rBytes = signature[0].ToByteArrayUnsigned();
+            var sBytes = signature[1].ToByteArrayUnsigned();
+            byte[] signatureBytes = new byte[Transaction.SIGNATURE_LENGTH];
+            Buffer.BlockCopy(rBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH / 2 - rBytes.Length, rBytes.Length);
+            Buffer.BlockCopy(sBytes, 0, signatureBytes, Transaction.SIGNATURE_LENGTH - sBytes.Length, sBytes.Length);
+            return new BecomeValidatorPacket(wId, stake, timestamp, signatureBytes);
+        }
+
+        public PublicKey ToPublicKey()
+        {
+            var sWriter = new StringWriter();
+            var pemWriter = new PemWriter(sWriter);
+            pemWriter.WriteObject(publicKeyParams);
+            var str = sWriter.ToString();
+            str = str.Replace("-----BEGIN PUBLIC KEY-----", "").Replace("-----END PUBLIC KEY-----", "").Replace("\r\n", "");
+            return new PublicKey(str);
         }
     }
 
@@ -126,7 +156,7 @@ namespace proiect_mds.blockchain
             var signer = new ECDsaSigner();
             signer.Init(false, publicKeyParams);
             string formattedTimestamp = transaction.Timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
-            byte[] transactionData = Encoding.UTF8.GetBytes($"{transaction.Sender}{transaction.Receiver}{transaction.Amount}{formattedTimestamp}");
+            byte[] transactionData = Encoding.UTF8.GetBytes($"{transaction.Sender.Value}{transaction.Receiver.Value}{transaction.Amount}{formattedTimestamp}");
             
             byte[] rBytes = new byte[Transaction.SIGNATURE_LENGTH / 2];
             Buffer.BlockCopy(transaction.Signature, 0, rBytes, 0, rBytes.Length);
@@ -140,9 +170,9 @@ namespace proiect_mds.blockchain
         }
         public bool ValidateElectionSignature(WalletId wId, DateTime timestamp, uint stake, byte[] signature)
         {
+            
             if (signature.Length != Transaction.SIGNATURE_LENGTH)
                 return false;
-
             var rdr = new PemReader(new StringReader(
                 "-----BEGIN PUBLIC KEY-----" +
                 PemString +
@@ -153,15 +183,15 @@ namespace proiect_mds.blockchain
             var signer = new ECDsaSigner();
             signer.Init(false, publicKeyParams);
             string formattedTimestamp = timestamp.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
-            byte[] packetData = Encoding.UTF8.GetBytes($"{wId}{stake}{formattedTimestamp}");
+            byte[] packetData = Encoding.UTF8.GetBytes($"{wId.Value}{stake}{formattedTimestamp}");
+
             byte[] rBytes = new byte[Transaction.SIGNATURE_LENGTH / 2];
             Buffer.BlockCopy(signature, 0, rBytes, 0, rBytes.Length);
-            var r = new BigInteger(rBytes);
+            var r = new BigInteger((new byte[] { 0 }).Concat(rBytes).ToArray());
 
             byte[] sBytes = new byte[Transaction.SIGNATURE_LENGTH / 2];
             Buffer.BlockCopy(signature, Transaction.SIGNATURE_LENGTH / 2, sBytes, 0, sBytes.Length);
-            var s = new BigInteger(sBytes);
-
+            var s = new BigInteger((new byte[] { 0 }).Concat(sBytes).ToArray());
             return signer.VerifySignature(packetData, r, s);
         }
     }
@@ -219,7 +249,10 @@ namespace proiect_mds.blockchain
                 throw new InvalidOperationException("Could not sign the transaction.");
             return transaction;
         }
-
+        public PublicWallet ToPublicWallet()
+        {
+            return new PublicWallet(Identifier, privateKey.ToPublicKey());
+        }
         public static Wallet CreateUniqueWallet(Blockchain blockchain, PrivateKey privateKey)
         {
             var random = new SecureRandom();

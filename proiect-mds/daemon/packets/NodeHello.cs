@@ -23,7 +23,10 @@ namespace proiect_mds.daemon.packets
         BroadcastTransaction = 3,
         [EnumMember]
         [ProtoEnum]
-        BecomeValidator = 4
+        BecomeValidator = 4,
+        [EnumMember]
+        [ProtoEnum]
+        CreateWallet = 5
     }
 
     [DataContract]
